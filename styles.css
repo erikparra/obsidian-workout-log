@@ -120,6 +120,31 @@
 	justify-content: center;
 }
 
+/* Set Main Row - single line with flex layout */
+.workout-set-main {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 24px;
+}
+
+.workout-set-icon {
+	font-size: 0.9em;
+	width: 16px;
+	text-align: center;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+/* Set Timer - positioned on the right */
+.workout-set-timer {
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+	color: var(--text-muted);
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
 .workout-exercise.simple .workout-exercise-name {
 	flex: none;
 	min-width: auto;
@@ -420,4 +445,50 @@
 		padding: 8px 14px;
 		font-size: 0.9em;
 	}
+}
+
+/* Rest Timer Color Phases */
+@keyframes rest-green-pulse {
+	0%, 100% {
+		background-color: rgba(76, 175, 80, 0.1);
+	}
+	50% {
+		background-color: rgba(76, 175, 80, 0.3);
+	}
+}
+
+@keyframes rest-yellow-pulse {
+	0%, 100% {
+		background-color: rgba(255, 193, 7, 0.1);
+	}
+	50% {
+		background-color: rgba(255, 193, 7, 0.3);
+	}
+}
+
+@keyframes rest-red-pulse {
+	0%, 100% {
+		background-color: rgba(244, 67, 54, 0.1);
+	}
+	50% {
+		background-color: rgba(244, 67, 54, 0.4);
+	}
+}
+
+/* Green phase: 66-100% remaining - Calm pulsing green */
+.workout-set.rest-phase-green {
+	animation: rest-green-pulse 2s ease-in-out infinite;
+	border-left: 4px solid rgba(76, 175, 80, 0.6);
+}
+
+/* Yellow phase: 33-66% remaining - Faster pulsing yellow */
+.workout-set.rest-phase-yellow {
+	animation: rest-yellow-pulse 1s ease-in-out infinite;
+	border-left: 4px solid rgba(255, 193, 7, 0.8);
+}
+
+/* Red phase: 0-33% remaining - Rapid pulsing red */
+.workout-set.rest-phase-red {
+	animation: rest-red-pulse 0.5s ease-in-out infinite;
+	border-left: 4px solid rgba(244, 67, 54, 0.95);
 }

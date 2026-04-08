@@ -53,20 +53,57 @@ export function renderWorkout(ctx: RendererContext): void {
 	// Approximate character width (will be refined by CSS)
 	exercisesContainer.style.setProperty('--max-name-chars', String(maxNameLength));
 
+	// Provide onSetFinish callback for last set rest logic
+	const enhancedCallbacks: WorkoutCallbacks = {
+		...callbacks,
+		onSetFinish: (exerciseIndex: number, setIndex: number) => {
+			const exercise = parsed.exercises[exerciseIndex];
+			if (!exercise || !exercise.sets) return;
+			const set = exercise.sets[setIndex];
+			if (!set) return;
+			const restParam = set.params.find(p => p.key.toLowerCase() === 'rest');
+			if (!restParam) {
+				// No rest parameter, just advance
+				callbacks.onExerciseFinish(exerciseIndex);
+				return;
+			}
+			// Parse rest duration - value could be like "60" or "60s"
+			const restDurationStr = (restParam.value || '').trim();
+			const restSeconds = parseInt(restDurationStr, 10);
+			if (restSeconds > 0) {
+				// Start rest timer
+				timerManager.startRest(workoutId, restSeconds);
+				// Immediately notify subscribers so UI updates without waiting for next timer tick
+				try {
+					timerManager.notifySubscribers(workoutId);
+				} catch (e) {
+					// Silently ignore if notifySubscribers fails - rest will still update on next tick
+				}
+				// Do NOT mark set as completed yet; wait for rest to finish and auto-advance
+			} else {
+				// No valid rest duration, immediately mark set as completed and advance
+				callbacks.onExerciseFinish(exerciseIndex);
+			}
+		}
+	};
+
 	for (let i = 0; i < parsed.exercises.length; i++) {
 		const exercise = parsed.exercises[i];
 		if (!exercise) continue;
 
 		const isActive = i === initialActiveIndex;
+		const activeSetIndex = isActive ? timerManager.getActiveSetIndex(workoutId) : -1;
 		const elements = renderExercise(
 			exercisesContainer,
 			exercise,
 			i,
 			isActive,
+			activeSetIndex,
 			isActive ? timerState : null,
-			callbacks,
+			enhancedCallbacks,
 			parsed.metadata.state,
-			parsed.metadata.restDuration
+			parsed.metadata.restDuration,
+			parsed.exercises.length // totalExercises
 		);
 		exerciseElements.push(elements);
 	}
@@ -103,25 +140,38 @@ export function renderWorkout(ctx: RendererContext): void {
 				return;
 			}
 
-			// Update active exercise timer
+			// Update active exercise timer or set timer
 			const activeElements = exerciseElements[currentActiveIndex];
 			const activeExercise = parsed.exercises[currentActiveIndex];
 
-			if (activeElements?.timerEl && activeExercise) {
-				updateExerciseTimer(
-					activeElements.timerEl,
-					state,
-					activeExercise.targetDuration
-				);
+			if (activeExercise) {
+				// Update set timer if sets exist and active set timer element exists
+				if (activeElements?.setTimerEl) {
+					updateExerciseTimer(
+						activeElements.setTimerEl,
+						state,
+						undefined  // Set timers are count-up, not countdown
+					);
+				} else if (activeElements?.timerEl) {
+					// Update exercise timer if no sets
+					updateExerciseTimer(
+						activeElements.timerEl,
+						state,
+						activeExercise.targetDuration
+					);
+				}
 
-				// Check for auto-advance on countdown completion
-				// Only trigger once per render instance
-				if (!hasAutoAdvanced && activeExercise.targetDuration !== undefined) {
-					if (state.exerciseElapsed >= activeExercise.targetDuration) {
-						hasAutoAdvanced = true;
-						// Auto-advance to next exercise
-						callbacks.onExerciseFinish(currentActiveIndex);
-					}
+				// Check for auto-advance on rest completion for last set (onSetFinish case)
+				const isLastSet = Array.isArray(activeExercise.sets) && activeElements?.setTimerEl &&
+					(timerManager.getActiveSetIndex(workoutId) === activeExercise.sets.length - 1);
+				const isLastExercise = currentActiveIndex === parsed.exercises.length - 1;
+				if (
+					isLastSet && !isLastExercise && state.isRestActive &&
+					typeof state.restRemaining === 'number' && state.restRemaining <= 0 && !hasAutoAdvanced
+				) {
+					hasAutoAdvanced = true;
+					// Now mark set as completed and advance
+					callbacks.onExerciseFinish(currentActiveIndex);
 				}
 			}
 		});

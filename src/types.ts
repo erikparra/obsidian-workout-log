@@ -1,5 +1,11 @@
 import { MarkdownPostProcessorContext, TFile, App } from 'obsidian';
 
+// Token types for parameter parsing
+export interface Token {
+	type: 'key' | 'bracket' | 'value' | 'unit';
+	value: string;
+}
+
 // Workout states
 export type WorkoutState = 'planned' | 'started' | 'completed';
 
@@ -7,12 +13,19 @@ export type WorkoutState = 'planned' | 'started' | 'completed';
 // [ ] = pending, [\] = inProgress, [x] = completed, [-] = skipped
 export type ExerciseState = 'pending' | 'inProgress' | 'completed' | 'skipped';
 
-// Key-value pairs for exercise parameters
+// Key-value pairs for exercise/set parameters
 export interface ExerciseParam {
 	key: string;
 	value: string;
 	editable: boolean;  // true if wrapped in [brackets]
 	unit?: string;
+}
+
+// Single set within an exercise
+export interface ExerciseSet {
+	state: ExerciseState;
+	params: ExerciseParam[];
+	lineIndex: number;           // Line index relative to exercise section start
 }
 
 // Parsed metadata from the workout block header
@@ -24,14 +37,15 @@ export interface WorkoutMetadata {
 	restDuration?: number; // Default rest duration in seconds
 }
 
-// Single exercise entry
+// Single exercise entry (with nested sets)
 export interface Exercise {
 	state: ExerciseState;
 	name: string;
-	params: ExerciseParam[];
-	targetDuration?: number;     // Target duration in seconds (for countdown)
-	recordedDuration?: string;   // Recorded duration after completion
-	lineIndex: number;           // Line index relative to exercise section start
+	params: ExerciseParam[];      // Exercise-level params (e.g., Duration)
+	sets: ExerciseSet[];          // Nested sets
+	targetDuration?: number;      // Target duration in seconds (for countdown)
+	recordedDuration?: string;    // Recorded duration after completion
+	lineIndex: number;            // Line index relative to exercise section start
 }
 
 // Complete parsed workout block
@@ -46,10 +60,15 @@ export interface ParsedWorkout {
 export interface TimerInstance {
 	workoutId: string;
 	workoutStartTime: number;    // Timestamp when workout started
-	exerciseStartTime: number;   // Timestamp when current exercise started
-	exercisePausedTime: number;  // Accumulated paused time for current exercise
+	exerciseStartTime: number;   // Timestamp when current set started
+	exercisePausedTime: number;  // Accumulated paused time for current set
 	isPaused: boolean;
 	activeExerciseIndex: number;
+	activeSetIndex: number;      // Index of active set within active exercise
+	isRestActive: boolean;       // True if currently in rest period after a set
+	restStartTime: number;       // Timestamp when rest period started
+	restPausedTime: number;      // Accumulated paused time for rest period
+	restDuration: number;        // Total rest duration in seconds for current rest period
 	callbacks: Set<TimerCallback>;
 }
 
@@ -59,6 +78,9 @@ export interface TimerState {
 	exerciseElapsed: number;     // Current exercise elapsed seconds
 	remaining?: number;          // Seconds remaining (countdown mode)
 	isOvertime: boolean;         // True if countdown exceeded
+	isRestActive?: boolean;      // True if currently in rest period
+	restElapsed?: number;        // Rest period elapsed seconds
+	restRemaining?: number;      // Rest period remaining seconds
 }
 
 export type TimerCallback = (state: TimerState) => void;
@@ -72,10 +94,12 @@ export interface WorkoutCallbacks {
 	onExerciseAddRest: (exerciseIndex: number) => Promise<void>;
 	onExerciseSkip: (exerciseIndex: number) => Promise<void>;
 	onParamChange: (exerciseIndex: number, paramKey: string, newValue: string) => void;
+	onSetParamChange: (exerciseIndex: number, setIndex: number, paramKey: string, newValue: string) => void;
 	onFlushChanges: () => Promise<void>;
 	onPauseExercise: () => void;
 	onResumeExercise: () => void;
 	onAddSample: () => Promise<void>;
+	onSetFinish?: (exerciseIndex: number, setIndex: number) => void;
 }
 
 // Context passed to renderer

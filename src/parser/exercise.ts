@@ -1,8 +1,6 @@
-import { Exercise, ExerciseState, ExerciseParam } from '../types';
+import { Exercise, ExerciseSet, ExerciseState, ExerciseParam, Token } from '../types';
 
 // Checkbox patterns: [ ] pending, [\] inProgress, [x] completed, [-] skipped
-const EXERCISE_PATTERN = /^-\s*\[(.)\]\s*(.+)$/;
-
 const STATE_MAP: Record<string, ExerciseState> = {
 	' ': 'pending',
 	'\\': 'inProgress',
@@ -17,21 +15,37 @@ const STATE_CHAR_MAP: Record<ExerciseState, string> = {
 	'skipped': '-'
 };
 
-// Parse value with optional brackets: [value] = editable, value = locked
-// Also handle Duration special case for timer
-const PARAM_PATTERN = /^([^:]+):\s*(\[([^\]]*)\]|([^\s\[]+))(\s+(.+))?$/;
+function tokenizeExerciseLine(line: string): { stateChar: string; remainder: string } | null {
+	// Check for leading dash
+	if (!line.startsWith('-')) return null;
+
+	// Find opening bracket
+	const openBracketIndex = line.indexOf('[');
+	if (openBracketIndex === -1) return null;
+
+	// Find closing bracket
+	const closeBracketIndex = line.indexOf(']', openBracketIndex);
+	if (closeBracketIndex === -1) return null;
+
+	// Extract state character
+	const stateChar = line.substring(openBracketIndex + 1, closeBracketIndex);
+	if (stateChar.length !== 1) return null;
+
+	// Get remainder after closing bracket
+	const afterBracket = line.substring(closeBracketIndex + 1).trimStart();
+	if (!afterBracket) return null;
+
+	return { stateChar, remainder: afterBracket };
+}
 
 export function parseExercise(line: string, lineIndex: number): Exercise | null {
-	const match = line.match(EXERCISE_PATTERN);
-	if (!match) return null;
+	const tokenized = tokenizeExerciseLine(line);
+	if (!tokenized) return null;
 
-	const stateChar = match[1] ?? ' ';
-	const rest = match[2] ?? '';
-
-	const state = STATE_MAP[stateChar] ?? 'pending';
+	const state = STATE_MAP[tokenized.stateChar] ?? 'pending';
 
 	// Split by | to get name and params
-	const parts = rest.split('|').map(p => p.trim());
+	const parts = tokenized.remainder.split('|').map(p => p.trim());
 	const name = parts[0] ?? '';
 	const paramStrings = parts.slice(1);
 
@@ -61,43 +75,98 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 		state,
 		name,
 		params,
+		sets: [],
 		targetDuration,
 		recordedDuration,
 		lineIndex
 	};
 }
 
-function parseParam(paramStr: string): ExerciseParam | null {
-	// Handle simple format: Key: value or Key: [value] or Key: [value] unit
-	const colonIndex = paramStr.indexOf(':');
-	if (colonIndex === -1) return null;
+export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
+	const trimmed = line.trim();
+	const tokenized = tokenizeExerciseLine(trimmed);
+	if (!tokenized) return null;
 
-	const key = paramStr.substring(0, colonIndex).trim();
-	const rest = paramStr.substring(colonIndex + 1).trim();
+	const state = STATE_MAP[tokenized.stateChar] ?? 'pending';
 
-	// Check for bracketed value
-	const bracketMatch = rest.match(/^\[([^\]]*)\](.*)$/);
-	if (bracketMatch) {
-		const value = bracketMatch[1] ?? '';
-		const afterBracket = (bracketMatch[2] ?? '').trim();
-		return {
-			key,
-			value,
-			editable: true,
-			unit: afterBracket || undefined
-		};
+	// Split by | to get params (no name for sets)
+	const parts = tokenized.remainder.split('|').map(p => p.trim());
+	const paramStrings = parts;
+
+	const params: ExerciseParam[] = [];
+
+	for (const paramStr of paramStrings) {
+		const param = parseParam(paramStr);
+		if (param) {
+			params.push(param);
+		}
 	}
 
-	// No brackets - split on first space for value and unit
-	const parts = rest.split(/\s+/);
-	const value = parts[0] ?? '';
-	const unit = parts.slice(1).join(' ') || undefined;
+	return {
+		state,
+		params,
+		lineIndex
+	};
+}
+
+function tokenizeParam(paramStr: string): Token[] {
+	const tokens: Token[] = [];
+
+	// 1. Parse key (everything before colon)
+	const colonIndex = paramStr.indexOf(':');
+	if (colonIndex === -1) return [];
+
+	const key = paramStr.substring(0, colonIndex).trim();
+	tokens.push({ type: 'key', value: key });
+
+	// 2. Parse value and unit (after colon)
+	let remainder = paramStr.substring(colonIndex + 1).trim();
+
+	// Check for bracketed value
+	if (remainder.startsWith('[')) {
+		const closeBracketIndex = remainder.indexOf(']');
+		if (closeBracketIndex !== -1) {
+			const value = remainder.substring(1, closeBracketIndex);
+			tokens.push({ type: 'bracket', value });
+			remainder = remainder.substring(closeBracketIndex + 1).trim();
+		}
+	} else if (remainder.length > 0) {
+		// Unbracketed value - read until space
+		const spaceIndex = remainder.indexOf(' ');
+		if (spaceIndex === -1) {
+			// No space, entire remainder is value
+			tokens.push({ type: 'value', value: remainder });
+			return tokens;
+		} else {
+			tokens.push({ type: 'value', value: remainder.substring(0, spaceIndex) });
+			remainder = remainder.substring(spaceIndex).trim();
+		}
+	}
+
+	// 3. Parse unit (whatever remains)
+	if (remainder) {
+		tokens.push({ type: 'unit', value: remainder });
+	}
+
+	return tokens;
+}
+
+function parseParam(paramStr: string): ExerciseParam | null {
+	const tokens = tokenizeParam(paramStr);
+	if (tokens.length === 0) return null;
+
+	const keyToken = tokens.find(t => t.type === 'key');
+	const valueToken = tokens.find(t => t.type === 'bracket' || t.type === 'value');
+
+	if (!keyToken || !valueToken) return null;
+
+	const unitToken = tokens.find(t => t.type === 'unit');
 
 	return {
-		key,
-		value,
-		editable: false,
-		unit
+		key: keyToken.value,
+		value: valueToken.value,
+		editable: valueToken.type === 'bracket',
+		unit: unitToken?.value
 	};
 }
 
@@ -165,6 +234,26 @@ export function serializeExercise(exercise: Exercise): string {
 	let line = `- [${stateChar}] ${exercise.name}`;
 
 	for (const param of exercise.params) {
+		line += ' | ';
+		line += `${param.key}: `;
+		if (param.editable) {
+			line += `[${param.value}]`;
+		} else {
+			line += param.value;
+		}
+		if (param.unit) {
+			line += ` ${param.unit}`;
+		}
+	}
+
+	return line;
+}
+
+export function serializeSet(set: ExerciseSet): string {
+	const stateChar = getStateChar(set.state);
+	let line = `  - [${stateChar}]`;
+
+	for (const param of set.params) {
 		line += ' | ';
 		line += `${param.key}: `;
 		if (param.editable) {
