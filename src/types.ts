@@ -1,17 +1,17 @@
 import { MarkdownPostProcessorContext, TFile, App } from 'obsidian';
 
-// Token types for parameter parsing
-export interface Token {
-	type: 'key' | 'bracket' | 'value' | 'unit';
-	value: string;
-}
-
 // Workout states
 export type WorkoutState = 'planned' | 'started' | 'completed';
 
 // Exercise completion states from markdown checkboxes
 // [ ] = pending, [\] = inProgress, [x] = completed, [-] = skipped
 export type ExerciseState = 'pending' | 'inProgress' | 'completed' | 'skipped';
+
+// Token types for parameter parsing
+export interface Token {
+	type: 'key' | 'bracket' | 'value' | 'unit';
+	value: string;
+}
 
 // Key-value pairs for exercise/set parameters
 export interface ExerciseParam {
@@ -35,6 +35,7 @@ export interface WorkoutMetadata {
 	startDate?: string;   // ISO format or human readable
 	duration?: string;    // e.g., "11m 33s"
 	restDuration?: number; // Default rest duration in seconds
+	saveToProperties?: boolean; // Whether to save workout data to Obsidian properties
 }
 
 // Single exercise entry (with nested sets)
@@ -76,7 +77,7 @@ export interface TimerInstance {
 export interface TimerState {
 	workoutElapsed: number;      // Total workout elapsed seconds
 	exerciseElapsed: number;     // Current exercise elapsed seconds
-	remaining?: number;          // Seconds remaining (countdown mode)
+	exerciseRemaining?: number;  // Seconds remaining (countdown mode)
 	isOvertime: boolean;         // True if countdown exceeded
 	isRestActive?: boolean;      // True if currently in rest period
 	restElapsed?: number;        // Rest period elapsed seconds
@@ -89,17 +90,27 @@ export type TimerCallback = (state: TimerState) => void;
 export interface WorkoutCallbacks {
 	onStartWorkout: () => Promise<void>;
 	onFinishWorkout: () => Promise<void>;
-	onExerciseFinish: (exerciseIndex: number) => Promise<void>;
+	
+	// Set/Exercise flow callbacks
+	onSetFinish: (exerciseIndex: number, setIndex: number) => Promise<void>;
+	onRestStart: (exerciseIndex: number, restDuration: number) => Promise<void>;
+	onRestEnd: (exerciseIndex: number) => Promise<void>;
+	onExerciseSkip: (exerciseIndex: number) => Promise<void>;
 	onExerciseAddSet: (exerciseIndex: number) => Promise<void>;
 	onExerciseAddRest: (exerciseIndex: number) => Promise<void>;
-	onExerciseSkip: (exerciseIndex: number) => Promise<void>;
+	
+	// Parameter change callbacks
 	onParamChange: (exerciseIndex: number, paramKey: string, newValue: string) => void;
 	onSetParamChange: (exerciseIndex: number, setIndex: number, paramKey: string, newValue: string) => void;
+	
+	// UI control callbacks
 	onFlushChanges: () => Promise<void>;
 	onPauseExercise: () => void;
 	onResumeExercise: () => void;
 	onAddSample: () => Promise<void>;
-	onSetFinish?: (exerciseIndex: number, setIndex: number) => void;
+	
+	// Deprecated: kept for backwards compatibility, use onSetFinish instead
+	onExerciseFinish?: (exerciseIndex: number) => Promise<void>;
 }
 
 // Context passed to renderer

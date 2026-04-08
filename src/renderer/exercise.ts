@@ -500,19 +500,11 @@ function renderSetControls(
 	const nextBtn = finishGroup.createEl('button', { cls: 'workout-btn', text: nextBtnText });
 	nextBtn.addEventListener('click', () => {
 		if (timerState?.isRestActive) {
-			// Skip rest and advance to next set
-			const nextSetIndex = setIndex + 1;
-			callbacks.onExerciseFinish(exerciseIndex);
+			// Currently in rest period, end it and advance to next set
+			callbacks.onRestEnd(exerciseIndex);
 		} else {
-			const isLastSet = setIndex === totalSets - 1;
-			const isLastExercise = typeof totalExercises === 'number' ? (exerciseIndex === totalExercises - 1) : false;
-			if (isLastSet && !isLastExercise && typeof callbacks.onSetFinish === 'function') {
-				// Last set, but not last exercise: trigger rest for last set
-				callbacks.onSetFinish(exerciseIndex, setIndex);
-			} else {
-				// Otherwise, finish set/exercise as usual
-				callbacks.onExerciseFinish(exerciseIndex);
-			}
+			// Finishing a set, may start rest or advance
+			callbacks.onSetFinish(exerciseIndex, setIndex);
 		}
 	});
 }

@@ -53,39 +53,8 @@ export function renderWorkout(ctx: RendererContext): void {
 	// Approximate character width (will be refined by CSS)
 	exercisesContainer.style.setProperty('--max-name-chars', String(maxNameLength));
 
-	// Provide onSetFinish callback for last set rest logic
-	const enhancedCallbacks: WorkoutCallbacks = {
-		...callbacks,
-		onSetFinish: (exerciseIndex: number, setIndex: number) => {
-			const exercise = parsed.exercises[exerciseIndex];
-			if (!exercise || !exercise.sets) return;
-			const set = exercise.sets[setIndex];
-			if (!set) return;
-			const restParam = set.params.find(p => p.key.toLowerCase() === 'rest');
-			if (!restParam) {
-				// No rest parameter, just advance
-				callbacks.onExerciseFinish(exerciseIndex);
-				return;
-			}
-			// Parse rest duration - value could be like "60" or "60s"
-			const restDurationStr = (restParam.value || '').trim();
-			const restSeconds = parseInt(restDurationStr, 10);
-			if (restSeconds > 0) {
-				// Start rest timer
-				timerManager.startRest(workoutId, restSeconds);
-				// Immediately notify subscribers so UI updates without waiting for next timer tick
-				try {
-					timerManager.notifySubscribers(workoutId);
-				} catch (e) {
-					// Silently ignore if notifySubscribers fails - rest will still update on next tick
-				}
-				// Do NOT mark set as completed yet; wait for rest to finish and auto-advance
-			} else {
-				// No valid rest duration, immediately mark set as completed and advance
-				callbacks.onExerciseFinish(exerciseIndex);
-			}
-		}
-	};
+	// Use callbacks directly - rest logic is now handled in the callbacks
+	const exerciseCallbacks = callbacks;
 
 	for (let i = 0; i < parsed.exercises.length; i++) {
 		const exercise = parsed.exercises[i];
@@ -100,7 +69,7 @@ export function renderWorkout(ctx: RendererContext): void {
 			isActive,
 			activeSetIndex,
 			isActive ? timerState : null,
-			enhancedCallbacks,
+			exerciseCallbacks,
 			parsed.metadata.state,
 			parsed.metadata.restDuration,
 			parsed.exercises.length // totalExercises
@@ -161,7 +130,7 @@ export function renderWorkout(ctx: RendererContext): void {
 					);
 				}
 
-				// Check for auto-advance on rest completion for last set (onSetFinish case)
+				// Check for auto-advance on rest completion
 				const isLastSet = Array.isArray(activeExercise.sets) && activeElements?.setTimerEl &&
 					(timerManager.getActiveSetIndex(workoutId) === activeExercise.sets.length - 1);
 				const isLastExercise = currentActiveIndex === parsed.exercises.length - 1;
@@ -170,8 +139,8 @@ export function renderWorkout(ctx: RendererContext): void {
 					typeof state.restRemaining === 'number' && state.restRemaining <= 0 && !hasAutoAdvanced
 				) {
 					hasAutoAdvanced = true;
-					// Now mark set as completed and advance
-					callbacks.onExerciseFinish(currentActiveIndex);
+					// Rest period completed, advance to next set
+					callbacks.onRestEnd(currentActiveIndex);
 				}
 			}
 		});

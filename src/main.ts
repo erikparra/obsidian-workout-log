@@ -91,7 +91,8 @@ export default class WorkoutLogPlugin extends Plugin {
 			}
 		};
 
-		return {
+		// Define callbacks object so methods can reference each other
+		const callbacks: WorkoutCallbacks = {
 			onStartWorkout: async (): Promise<void> => {
 				hasPendingChanges = false; // Will be saved by updateFile below
 				// Update state to started
@@ -132,51 +133,54 @@ export default class WorkoutLogPlugin extends Plugin {
 			},
 
 			onExerciseFinish: async (exerciseIndex: number): Promise<void> => {
-				hasPendingChanges = false; // Will be saved by updateFile below
+				// Deprecated: kept for backwards compatibility
+				// Delegates to onSetFinish or onRestEnd based on state
+				const activeSetIndex = this.timerManager.getActiveSetIndex(workoutId);
+				const timerState = this.timerManager.getTimerState(workoutId);
+				
+				if (timerState?.isRestActive) {
+					await callbacks.onRestEnd(exerciseIndex);
+				} else {
+					await callbacks.onSetFinish(exerciseIndex, activeSetIndex);
+				}
+			},
+
+			onSetFinish: async (exerciseIndex: number, setIndex: number): Promise<void> => {
+				hasPendingChanges = false;
 				const exercise = currentParsed.exercises[exerciseIndex];
 				if (!exercise) return;
 
-				const activeSetIndex = this.timerManager.getActiveSetIndex(workoutId);
 				const timerState = this.timerManager.getTimerState(workoutId);
-
-				// If in rest mode, exit rest and advance to next set
-				if (timerState?.isRestActive) {
-					const nextSetIndex = activeSetIndex + 1;
-					if (nextSetIndex < exercise.sets.length) {
-						currentParsed = updateSetState(currentParsed, exerciseIndex, nextSetIndex, 'inProgress');
-						this.timerManager.exitRest(workoutId, exerciseIndex, nextSetIndex);
-						await updateFile(currentParsed);
-					}
-					return;
-				}
 
 				// Record duration for current set
 				if (timerState) {
 					currentParsed = setSetRecordedDuration(
 						currentParsed,
 						exerciseIndex,
-						activeSetIndex,
+						setIndex,
 						formatDurationHuman(timerState.exerciseElapsed)
 					);
 				}
 
 				// Mark current set as completed
-				currentParsed = updateSetState(currentParsed, exerciseIndex, activeSetIndex, 'completed');
+				currentParsed = updateSetState(currentParsed, exerciseIndex, setIndex, 'completed');
 
 				// Check if there are more sets in this exercise
-				if (activeSetIndex < exercise.sets.length - 1) {
+				if (setIndex < exercise.sets.length - 1) {
 					// Check if current set has a rest period
-					const currentSet = exercise.sets[activeSetIndex];				if (!currentSet) return;
-									const restParam = currentSet.params.find(p => p.key.toLowerCase() === 'rest');
+					const currentSet = exercise.sets[setIndex];
+					if (!currentSet) return;
+					const restParam = currentSet.params.find(p => p.key.toLowerCase() === 'rest');
 					
 					if (restParam) {
-						// Start rest timer instead of immediately advancing
-					const restDurationSeconds = parseDurationToSeconds(restParam.value);
-					this.timerManager.startRest(workoutId, restDurationSeconds);
+						// Start rest timer - save state first
 						await updateFile(currentParsed);
+						// Then start rest transition
+						const restDurationSeconds = parseDurationToSeconds(restParam.value);
+						await callbacks.onRestStart(exerciseIndex, restDurationSeconds);
 					} else {
 						// No rest, advance immediately to next set
-						const nextSetIndex = activeSetIndex + 1;
+						const nextSetIndex = setIndex + 1;
 						currentParsed = updateSetState(currentParsed, exerciseIndex, nextSetIndex, 'inProgress');
 						this.timerManager.advanceSet(workoutId, exerciseIndex, nextSetIndex);
 						await updateFile(currentParsed);
@@ -193,10 +197,56 @@ export default class WorkoutLogPlugin extends Plugin {
 					if (nextPending >= 0) {
 						// Activate next exercise
 						currentParsed = updateExerciseState(currentParsed, nextPending, 'inProgress');
-
-						// Advance timer BEFORE file update so re-render sees reset timer
 						this.timerManager.advanceExercise(workoutId, nextPending);
+						await updateFile(currentParsed);
+					} else {
+						// No more exercises, complete workout
+						currentParsed.metadata.state = 'completed';
+						const finalState = this.timerManager.getTimerState(workoutId);
+						if (finalState) {
+							currentParsed.metadata.duration = formatDurationHuman(finalState.workoutElapsed);
+						}
+						currentParsed = lockAllFields(currentParsed);
+						await updateFile(currentParsed);
+						this.timerManager.stopWorkoutTimer(workoutId);
+					}
+				}
+			},
 
+			onRestStart: async (exerciseIndex: number, restDuration: number): Promise<void> => {
+				hasPendingChanges = false;
+				
+				// Start the rest timer in the timer manager
+				this.timerManager.startRest(workoutId, restDuration);
+				
+				// Save any pending changes (state is already in currentParsed from onSetFinish)
+				await updateFile(currentParsed);
+			},
+
+			onRestEnd: async (exerciseIndex: number): Promise<void> => {
+				hasPendingChanges = false;
+				const exercise = currentParsed.exercises[exerciseIndex];
+				if (!exercise) return;
+
+				const activeSetIndex = this.timerManager.getActiveSetIndex(workoutId);
+
+				// Rest finished, advance to next set
+				const nextSetIndex = activeSetIndex + 1;
+				if (nextSetIndex < exercise.sets.length) {
+					currentParsed = updateSetState(currentParsed, exerciseIndex, nextSetIndex, 'inProgress');
+					this.timerManager.exitRest(workoutId, exerciseIndex, nextSetIndex);
+					await updateFile(currentParsed);
+				} else {
+					// No more sets in this exercise, move to next exercise
+					currentParsed = updateExerciseState(currentParsed, exerciseIndex, 'completed');
+
+					const nextPending = currentParsed.exercises.findIndex(
+						(e, i) => i > exerciseIndex && e.state === 'pending'
+					);
+
+					if (nextPending >= 0) {
+						currentParsed = updateExerciseState(currentParsed, nextPending, 'inProgress');
+						this.timerManager.advanceExercise(workoutId, nextPending);
 						await updateFile(currentParsed);
 					} else {
 						// No more exercises, complete workout
@@ -374,6 +424,8 @@ export default class WorkoutLogPlugin extends Plugin {
 				);
 			}
 		};
+
+		return callbacks;
 	}
 
 	private formatStartDate(date: Date): string {
