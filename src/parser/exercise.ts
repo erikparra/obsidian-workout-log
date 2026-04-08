@@ -1,7 +1,4 @@
-import { Exercise, ExerciseState, ExerciseParam } from '../types';
-
-// Checkbox patterns: [ ] pending, [\] inProgress, [x] completed, [-] skipped
-const EXERCISE_PATTERN = /^-\s*\[(.)\]\s*(.+)$/;
+import { Exercise, ExerciseState, ParameterToken } from '../types';
 
 const STATE_MAP: Record<string, ExerciseState> = {
 	' ': 'pending',
@@ -17,30 +14,49 @@ const STATE_CHAR_MAP: Record<ExerciseState, string> = {
 	'skipped': '-'
 };
 
+// Tokenizer for parsing exercise line
+// Format: - [STATE] Exercise Name | Param: value | Param2: [value] unit
+function tokenizeExerciseLine(line: string): {
+	stateChar: string;
+	remainder: string; 
+} | null {
+	// Must start with "- ["
+	if (!line.startsWith('- [')) return null;
+
+	// Find closing bracket
+	const closeBracketIdx = line.indexOf(']', 3);
+	if (closeBracketIdx === -1) return null;
+
+	const stateChar = line[3] ?? '';
+
+	// Remainder is everything after "] "
+	const spaceAfterBracket = closeBracketIdx + 1;
+	if (spaceAfterBracket >= line.length || line[spaceAfterBracket] !== ' ') return null;
+
+	const remainder = line.substring(spaceAfterBracket + 1);
+	return { stateChar, remainder: remainder };
+}
+
 // Parse value with optional brackets: [value] = editable, value = locked
 // Also handle Duration special case for timer
-const PARAM_PATTERN = /^([^:]+):\s*(\[([^\]]*)\]|([^\s\[]+))(\s+(.+))?$/;
-
 export function parseExercise(line: string, lineIndex: number): Exercise | null {
-	const match = line.match(EXERCISE_PATTERN);
-	if (!match) return null;
+	const parsed = tokenizeExerciseLine(line);
+	if (!parsed) return null;
 
-	const stateChar = match[1] ?? ' ';
-	const rest = match[2] ?? '';
-
-	const state = STATE_MAP[stateChar] ?? 'pending';
+	const state = STATE_MAP[parsed.stateChar];
+	if (!state) return null;
 
 	// Split by | to get name and params
-	const parts = rest.split('|').map(p => p.trim());
+	const parts = parsed.remainder.split('|').map(p => p.trim());
 	const name = parts[0] ?? '';
 	const paramStrings = parts.slice(1);
 
-	const params: ExerciseParam[] = [];
+	const params: ParameterToken[] = [];
 	let targetDuration: number | undefined;
 	let recordedDuration: string | undefined;
 
 	for (const paramStr of paramStrings) {
-		const param = parseParam(paramStr);
+		const param = tokenizeParam(paramStr);
 		if (param) {
 			params.push(param);
 
@@ -67,7 +83,8 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 	};
 }
 
-function parseParam(paramStr: string): ExerciseParam | null {
+
+function tokenizeParam(paramStr: string): ParameterToken | null {
 	// Handle simple format: Key: value or Key: [value] or Key: [value] unit
 	const colonIndex = paramStr.indexOf(':');
 	if (colonIndex === -1) return null;
@@ -75,11 +92,16 @@ function parseParam(paramStr: string): ExerciseParam | null {
 	const key = paramStr.substring(0, colonIndex).trim();
 	const rest = paramStr.substring(colonIndex + 1).trim();
 
-	// Check for bracketed value
-	const bracketMatch = rest.match(/^\[([^\]]*)\](.*)$/);
-	if (bracketMatch) {
-		const value = bracketMatch[1] ?? '';
-		const afterBracket = (bracketMatch[2] ?? '').trim();
+	// Check for bracketed value using indexOf
+	const openBracketIdx = rest.indexOf('[');
+	if (openBracketIdx === 0) {
+		// Has brackets
+		const closeBracketIdx = rest.indexOf(']', 1);
+		if (closeBracketIdx === -1) return null;
+
+		const value = rest.substring(1, closeBracketIdx);
+		const afterBracket = rest.substring(closeBracketIdx + 1).trim();
+
 		return {
 			key,
 			value,
@@ -88,10 +110,18 @@ function parseParam(paramStr: string): ExerciseParam | null {
 		};
 	}
 
-	// No brackets - split on first space for value and unit
-	const parts = rest.split(/\s+/);
-	const value = parts[0] ?? '';
-	const unit = parts.slice(1).join(' ') || undefined;
+	// No brackets - find first space for value and unit
+	const spaceIdx = rest.indexOf(' ');
+	let value: string;
+	let unit: string | undefined;
+
+	if (spaceIdx === -1) {
+		// No space = just value
+		value = rest;
+	} else {
+		value = rest.substring(0, spaceIdx);
+		unit = rest.substring(spaceIdx + 1).trim() || undefined;
+	}
 
 	return {
 		key,
