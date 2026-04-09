@@ -77,7 +77,7 @@ function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): {
 			} else if (param.key.toLowerCase() === 'weight' || param.key.toLowerCase() === 'load') {
 				const weight = parseFloat(param.value);
 				if (!isNaN(weight)) {
-					totalWeight = weight; // Use last weight value (assume same for all sets)
+					totalWeight += weight;
 					weightFound = true;
 				}
 			} else if (param.key.toLowerCase() === 'rest') {
