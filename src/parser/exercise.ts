@@ -134,9 +134,26 @@ function tokenizeParam(paramStr: string): Token[] {
 		// Unbracketed value - read until space
 		const spaceIndex = remainder.indexOf(' ');
 		if (spaceIndex === -1) {
-			// No space, entire remainder is value
-			tokens.push({ type: 'value', value: remainder });
-			return tokens;
+			// No space - check if value and unit are concatenated (e.g., "10s", "60m")
+			let numericEnd = 0;
+			for (let i = 0; i < remainder.length; i++) {
+				const char = remainder.charAt(i);
+				if (char === '.' || (char >= '0' && char <= '9')) {
+					numericEnd = i + 1;
+				} else {
+					break;
+				}
+			}
+
+			if (numericEnd > 0 && numericEnd < remainder.length) {
+				// Has both numeric value and non-numeric unit
+				tokens.push({ type: 'value', value: remainder.substring(0, numericEnd) });
+				remainder = remainder.substring(numericEnd);
+			} else {
+				// No unit attached or all numeric, entire remainder is value
+				tokens.push({ type: 'value', value: remainder });
+				return tokens;
+			}
 		} else {
 			tokens.push({ type: 'value', value: remainder.substring(0, spaceIndex) });
 			remainder = remainder.substring(spaceIndex).trim();
@@ -162,11 +179,20 @@ function parseParam(paramStr: string): ExerciseParam | null {
 
 	const unitToken = tokens.find(t => t.type === 'unit');
 
+	let finalValue = valueToken.value;
+	let finalUnit = unitToken?.value;
+
+	// For Duration, combine value and unit since they're part of duration syntax (e.g., "3m2s")
+	if (keyToken.value.toLowerCase() === 'duration' && finalUnit) {
+		finalValue = finalValue + finalUnit;
+		finalUnit = undefined;
+	}
+
 	return {
 		key: keyToken.value,
-		value: valueToken.value,
+		value: finalValue,
 		editable: valueToken.type === 'bracket',
-		unit: unitToken?.value
+		unit: finalUnit
 	};
 }
 
