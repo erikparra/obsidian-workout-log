@@ -28,14 +28,37 @@ export interface ExerciseElements {
 	setInputs: Map<number, Map<string, HTMLInputElement>>;  // Indexed by set index
 }
 
-// Check if set has params to display (excludes Duration which is shown separately)
+// Check if set has params to display (includes duration, weight, reps in order)
 function hasDisplayableSetParams(set: ExerciseSet): boolean {
-	return set.params.some(p => p.key.toLowerCase() !== 'duration');
+	return set.params.some(p => {
+		const key = p.key.toLowerCase();
+		return key === 'duration' || key === 'weight' || key === 'reps';
+	});
 }
 
-// Get params to display inline (excludes Duration and recorded values)
+// Get params to display in order: duration, weight, reps (only if provided)
 function getDisplayableSetParams(set: ExerciseSet): ExerciseParam[] {
-	return set.params.filter(p => p.key.toLowerCase() !== 'duration');
+	const paramOrder = ['duration', 'weight', 'reps'];
+	const paramsMap = new Map<string, ExerciseParam>();
+	
+	// Build map of params by key
+	for (const param of set.params) {
+		const key = param.key.toLowerCase();
+		if (paramOrder.includes(key)) {
+			paramsMap.set(key, param);
+		}
+	}
+	
+	// Return params in specified order
+	const orderedParams: ExerciseParam[] = [];
+	for (const key of paramOrder) {
+		const param = paramsMap.get(key);
+		if (param) {
+			orderedParams.push(param);
+		}
+	}
+	
+	return orderedParams;
 }
 
 // Get recorded duration from a set (if any)
@@ -145,36 +168,39 @@ export function renderExercise(
 	const nameEl = mainRow.createSpan({ cls: 'workout-exercise-name' });
 	nameEl.textContent = exercise.name;
 
-	// Display totals from all sets (reps, weight, etc.)
+	// Determine if exercise has multiple sets
+	const hasMultipleSets = exercise.sets.length > 1;
 	const isCompleted = exercise.state === 'completed';
 	const totals = computeExerciseTotals(exercise, isCompleted);
 	
-	if (totals.reps !== null || totals.weight !== null || (isCompleted && totals.totalRecordedTime > 0) || totals.totalRest > 0) {
-		const totalsEl = mainRow.createSpan({ cls: 'workout-exercise-totals' });
-
-		// Show total reps
-		if (totals.reps !== null) {
-			const repsEl = totalsEl.createSpan({ cls: 'workout-total' });
-			repsEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
-			repsEl.createSpan({ cls: 'workout-param-value', text: String(totals.reps) });
-		}
+	// For multi-set exercises, display totals from all sets
+	if (hasMultipleSets && (totals.reps !== null || totals.weight !== null || (isCompleted && totals.totalRecordedTime > 0) || totals.totalRest > 0)) {
+		const totalsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
 
 		// Show weight
 		if (totals.weight !== null) {
-			const weightEl = totalsEl.createSpan({ cls: 'workout-total' });
+			const weightEl = totalsEl.createSpan({ cls: 'workout-param' });
 			weightEl.createSpan({ cls: 'workout-param-value', text: String(totals.weight) });
 			weightEl.createSpan({ cls: 'workout-param-unit', text: ' lbs' });
 		}
 
-		// Show total recorded time when completed
+		// Show total reps
+		if (totals.reps !== null) {
+			const repsEl = totalsEl.createSpan({ cls: 'workout-param' });
+			repsEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
+			repsEl.createSpan({ cls: 'workout-param-value', text: String(totals.reps) });
+		}
+
+		// Show total recorded time when completed 
+		// TODO: change this to show total duration if provided.
 		if (isCompleted && totals.totalRecordedTime > 0) {
-			const timeEl = totalsEl.createSpan({ cls: 'workout-total' });
+			const timeEl = totalsEl.createSpan({ cls: 'workout-param' });
 			timeEl.createSpan({ cls: 'workout-param-value', text: formatDurationHuman(totals.totalRecordedTime) });
 		}
 
 		// Show total rest time
 		if (totals.totalRest > 0) {
-			const restEl = totalsEl.createSpan({ cls: 'workout-total workout-rest' });
+			const restEl = totalsEl.createSpan({ cls: 'workout-param' });
 			restEl.createSpan({ cls: 'workout-param-prefix', text: '⏸' });
 			restEl.createSpan({ cls: 'workout-param-value', text: formatDurationHuman(totals.totalRest) });
 		}
@@ -222,11 +248,54 @@ export function renderExercise(
 		}
 	}
 
-	// Timer display (right side) - only if no sets
-	// (timer shows on active set when sets exist)
+	// For single-set exercises, render set params inline on mainRow
+	if (!hasMultipleSets && exercise.sets.length > 0) {
+		const singleSet = exercise.sets[0];
+		if (singleSet && hasDisplayableSetParams(singleSet)) {
+			const paramsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
+			const setParamInputs = new Map<string, HTMLInputElement>();
+			const displayableParams = getDisplayableSetParams(singleSet);
+
+			for (const param of displayableParams) {
+				const paramEl = paramsEl.createSpan({ cls: 'workout-param' });
+
+				// × prefix for params without units
+				if (!param.unit) {
+					paramEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
+				}
+
+				if (param.editable && workoutState !== 'completed') {
+					const input = paramEl.createEl('input', {
+						cls: 'workout-param-input',
+						type: 'text',
+						value: param.value
+					});
+					input.addEventListener('input', () => {
+						callbacks.onSetParamChange(index, 0, param.key, input.value);
+					});
+					input.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') {
+							input.blur();
+						}
+					});
+					setParamInputs.set(param.key, input);
+				} else {
+					paramEl.createSpan({ cls: 'workout-param-value', text: param.value });
+				}
+
+				// Unit after value
+				if (param.unit) {
+					paramEl.createSpan({ cls: 'workout-param-unit', text: ` ${param.unit}` });
+				}
+			}
+			setInputs.set(0, setParamInputs);
+		}
+	}
+
+	// Timer display (right side) - show on mainRow if no sets or single set, otherwise on active set
 	let timerEl: HTMLElement | null = null;
 	
-	if (exercise.sets.length === 0) {
+	if (exercise.sets.length === 0 || !hasMultipleSets) {
 		timerEl = mainRow.createSpan({ cls: 'workout-exercise-timer' });
 
 		if (exercise.state === 'completed' && exercise.recordedDuration) {
@@ -242,8 +311,8 @@ export function renderExercise(
 		}
 	}
 
-	// Render sets as indented rows
-	if (exercise.sets.length > 0) {
+	// Render sets as indented rows (only for multi-set exercises)
+	if (hasMultipleSets) {
 		const setsContainer = exerciseEl.createDiv({ cls: 'workout-sets' });
 		for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
 			const set = exercise.sets[setIndex];
@@ -277,6 +346,9 @@ export function renderExercise(
 				);
 			}
 		}
+	} else if (!hasMultipleSets && isActive && workoutState === 'started') {
+		// For single-set active exercises, store the timerEl from mainRow as setTimerEl
+		setTimerEl = timerEl;
 	}
 
 	// Controls row (only for active set during workout)
