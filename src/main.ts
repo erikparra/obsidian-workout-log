@@ -82,6 +82,11 @@ export default class WorkoutLogPlugin extends Plugin {
 			// Pass title for validation to prevent cross-block contamination
 			const expectedTitle = currentParsed.metadata.title;
 			await this.fileUpdater?.updateCodeBlock(ctx.sourcePath, sectionInfo, newContent, expectedTitle);
+			
+			// Save to properties if enabled
+			if (currentParsed.metadata.saveToProperties) {
+				await this.fileUpdater?.saveToProperties(ctx.sourcePath, currentParsed);
+			}
 		};
 
 		// Flush any pending param changes to file

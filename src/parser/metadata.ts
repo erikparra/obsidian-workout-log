@@ -35,8 +35,9 @@ export function parseMetadata(lines: string[]): WorkoutMetadata {
 					const seconds = parseDurationToSeconds(value);
 					if (seconds > 0) metadata.restDuration = seconds;
 				}
-				break;
-		}
+				break;		case 'savetoproperties':
+			metadata.saveToProperties = value.toLowerCase() === 'true';
+			break;		}
 	}
 
 	return metadata;
@@ -57,6 +58,9 @@ export function serializeMetadata(metadata: WorkoutMetadata): string[] {
 	}
 	if (metadata.restDuration !== undefined) {
 		lines.push(`restDuration: ${formatDurationHuman(metadata.restDuration)}`);
+	}
+	if (metadata.saveToProperties !== undefined) {
+		lines.push(`saveToProperties: ${metadata.saveToProperties}`);
 	}
 
 	return lines;
