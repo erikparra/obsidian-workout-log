@@ -207,7 +207,8 @@ export function renderExercise(
 	}
 
 	// Params inline (between name and timer) - chip/pill style
-	if (exercise.params.length > 0) {
+	// For multi-set exercises, only totals are shown, not exercise params
+	if (exercise.params.length > 0 && !hasMultipleSets) {
 		const paramsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
 
 		for (const param of exercise.params) {
