@@ -263,8 +263,8 @@ describe('setSetRecordedDuration', () => {
 		const parsed = parseWorkout(source);
 		const updated = setSetRecordedDuration(parsed, 0, 0, '2m 30s');
 		
-		const durationParam = updated.exercises[0].sets[0].params.find(p => p.key === 'Duration');
-		expect(durationParam?.value).toBe('2m 30s');
+		// Should store to recordedDuration field, not Duration param
+		expect(updated.exercises[0].sets[0].recordedDuration).toBe('2m 30s');
 	});
 });
 
@@ -277,6 +277,169 @@ describe('updateSetRestDuration', () => {
 		const restParam = updated.exercises[0].sets[0].params.find(p => p.key === 'Rest');
 		expect(restParam?.value).toBe('90s');
 		expect(restParam?.editable).toBe(true);
+	});
+});
+
+describe('totals persistence (~time and ~rest)', () => {
+	it('should parse ~time and ~rest parameters in whitelist', () => {
+		const source = '---\n- [x] Exercise | ~rest: 5m | ~time: 38m\n  - [x] | Rest: 60s | Duration: 2:30';
+		const parsed = parseWorkout(source);
+		
+		expect(parsed.exercises[0].params).toHaveLength(2);
+		expect(parsed.exercises[0].params.find(p => p.key === '~rest')).toBeDefined();
+		expect(parsed.exercises[0].params.find(p => p.key === '~time')).toBeDefined();
+	});
+
+	it('should strip ~time and ~rest from incomplete exercises on serialize', () => {
+		const source = '---\n- [ ] Bench | Weight: [100] kg | ~rest: 5m | ~time: 30m\n  - [ ] | Weight: [100] kg';
+		const parsed = parseWorkout(source);
+		const serialized = serializeWorkout(parsed);
+		
+		// Totals should be stripped for incomplete exercise
+		expect(serialized).not.toContain('~rest');
+		expect(serialized).not.toContain('~time');
+		expect(serialized).toContain('- [ ] Bench | Weight: [100] kg');
+	});
+
+	it('should calculate and append ~rest for completed exercises with recorded rest', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Rest: 60s\n  - [x] | Rest: 60s';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded rest times (simulating actual elapsed rest from timer)
+		parsed.exercises[0].sets[0].recordedRest = '60s';
+		parsed.exercises[0].sets[1].recordedRest = '60s';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		// Should aggregate ~rest from both sets
+		expect(serialized).toContain('~rest: 2m');
+		expect(serialized).toContain('- [x] Bench | ~rest: 2m');
+	});
+
+	it('should calculate and append ~time for completed exercises with recorded duration', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Duration: 1:30\n  - [x] | Duration: 2:00';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded durations (simulating actual elapsed time from timer)
+		parsed.exercises[0].sets[0].recordedDuration = '1m 30s';
+		parsed.exercises[0].sets[1].recordedDuration = '2m';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		// Should aggregate ~time from both sets
+		expect(serialized).toContain('~time: 3m 30s');
+	});
+
+	it('should include both ~rest and ~time for completed exercises', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Duration: 2:00 | Rest: 45s\n  - [x] | Duration: 2:00 | Rest: 45s';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded times
+		parsed.exercises[0].sets[0].recordedDuration = '2m';
+		parsed.exercises[0].sets[0].recordedRest = '45s';
+		parsed.exercises[0].sets[1].recordedDuration = '2m';
+		parsed.exercises[0].sets[1].recordedRest = '45s';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		expect(serialized).toContain('~rest: 1m 30s');
+		expect(serialized).toContain('~time: 4m');
+	});
+
+	it('should recalculate totals fresh (not preserve old values)', () => {
+		const source = '---\n- [x] Bench | ~rest: 99m | ~time: 99m\n  - [x] | Duration: 1:00 | Rest: 30s';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded times (should overwrite old ~rest/~time from params)
+		parsed.exercises[0].sets[0].recordedDuration = '1m';
+		parsed.exercises[0].sets[0].recordedRest = '30s';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		// Old values should be recalculated, not preserved
+		expect(serialized).not.toContain('~rest: 99m');
+		expect(serialized).not.toContain('~time: 99m');
+		expect(serialized).toContain('~rest: 30s');
+		expect(serialized).toContain('~time: 1m');
+	});
+
+	it('should omit ~rest if no recorded rest exists', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Duration: 1:00';
+		const parsed = parseWorkout(source);
+		
+		// Set only recordedDuration
+		parsed.exercises[0].sets[0].recordedDuration = '1m';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		expect(serialized).not.toContain('~rest');
+		expect(serialized).toContain('~time: 1m');
+	});
+
+	it('should omit ~time if no recorded duration exists', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Rest: 60s';
+		const parsed = parseWorkout(source);
+		
+		// Set only recordedRest
+		parsed.exercises[0].sets[0].recordedRest = '60s';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		expect(serialized).not.toContain('~time');
+		expect(serialized).toContain('~rest: 1m');
+	});
+
+	it('should show totals as locked (non-editable) parameters', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Duration: 1:30 | Rest: 45s';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded times
+		parsed.exercises[0].sets[0].recordedDuration = '1m 30s';
+		parsed.exercises[0].sets[0].recordedRest = '45s';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		// Totals should be locked format (no brackets)
+		expect(serialized).toContain('~rest: 45s');
+		expect(serialized).not.toContain('~rest: [45s]');
+		expect(serialized).toContain('~time: 1m 30s');
+		expect(serialized).not.toContain('~time: [1m 30s]');
+	});
+
+	it('should roundtrip with totals preserved for completed exercises', () => {
+		const source = '---\n- [x] Bench\n  - [x] | Duration: 1:00 | Rest: 30s';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded times
+		parsed.exercises[0].sets[0].recordedDuration = '1m';
+		parsed.exercises[0].sets[0].recordedRest = '30s';
+		
+		const serialized = serializeWorkout(parsed);
+		const reparsed = parseWorkout(serialized);
+		
+		// ~rest and ~time should be parsed as params
+		expect(reparsed.exercises[0].params.find(p => p.key === '~rest')).toBeDefined();
+		expect(reparsed.exercises[0].params.find(p => p.key === '~time')).toBeDefined();
+	});
+
+	it('should handle exercises with multiple sets correctly', () => {
+		const source = '---\n- [x] Squats\n  - [x] | Duration: 2:00 | Rest: 60s\n  - [x] | Duration: 2:30 | Rest: 60s\n  - [x] | Duration: 2:15 | Rest: 45s';
+		const parsed = parseWorkout(source);
+		
+		// Set recorded times for each set
+		parsed.exercises[0].sets[0].recordedDuration = '2m';
+		parsed.exercises[0].sets[0].recordedRest = '60s';
+		parsed.exercises[0].sets[1].recordedDuration = '2m 30s';
+		parsed.exercises[0].sets[1].recordedRest = '60s';
+		parsed.exercises[0].sets[2].recordedDuration = '2m 15s';
+		parsed.exercises[0].sets[2].recordedRest = '45s';
+		
+		const serialized = serializeWorkout(parsed);
+		
+		// 2m + 2m 30s + 2m 15s = 6m 45s
+		// 60s + 60s + 45s = 165s = 2m 45s
+		expect(serialized).toContain('~time: 6m 45s');
+		expect(serialized).toContain('~rest: 2m 45s');
 	});
 });
 
@@ -299,5 +462,70 @@ describe('serializeWorkoutAsTemplate', () => {
 		expect(template).toContain('state: planned');
 		expect(template).toContain('startDate:');
 		expect(template).toContain('duration:');
+	});
+});
+
+describe('totals persistence roundtrip', () => {
+	it('should preserve ~time and ~rest through parse-serialize cycles', () => {
+		// Create a completed workout
+		const source = '---\n- [x] Bench\n  - [x] | Rest: 60s';
+		const parsed1 = parseWorkout(source);
+		
+		// Set recorded times
+		parsed1.exercises[0].sets[0].recordedDuration = '2m';
+		parsed1.exercises[0].sets[0].recordedRest = '45s';
+		
+		// First serialize - should add ~time and ~rest
+		const serialized1 = serializeWorkout(parsed1);
+		expect(serialized1).toContain('~time: 2m');
+		expect(serialized1).toContain('~rest: 45s');
+		
+		// Parse the serialized result
+		const parsed2 = parseWorkout(serialized1);
+		
+		// Check that ~time and ~rest were extracted into recordedDuration/recordedRest
+		expect(parsed2.exercises[0].sets[0].recordedDuration).toBe('2m');
+		expect(parsed2.exercises[0].sets[0].recordedRest).toBe('45s');
+		
+		// Serialize again - should still have ~time and ~rest
+		const serialized2 = serializeWorkout(parsed2);
+		expect(serialized2).toContain('~time: 2m');
+		expect(serialized2).toContain('~rest: 45s');
+		
+		// Parse and check one more time
+		const parsed3 = parseWorkout(serialized2);
+		expect(parsed3.exercises[0].sets[0].recordedDuration).toBe('2m');
+		expect(parsed3.exercises[0].sets[0].recordedRest).toBe('45s');
+	});
+
+	it('should aggregate set totals through exercise totals across multiple roundtrips', () => {
+		const source = '---\n- [x] Squats\n  - [x] | Rest: 60s\n  - [x] | Rest: 60s';
+		const parsed1 = parseWorkout(source);
+		
+		// Set recorded times for both sets
+		parsed1.exercises[0].sets[0].recordedDuration = '2m';
+		parsed1.exercises[0].sets[0].recordedRest = '60s';
+		parsed1.exercises[0].sets[1].recordedDuration = '2m 30s';
+		parsed1.exercises[0].sets[1].recordedRest = '60s';
+		
+		// First serialize - should calculate exercise totals
+		const serialized1 = serializeWorkout(parsed1);
+		expect(serialized1).toContain('- [x] Squats | ~rest: 2m | ~time: 4m 30s');
+		expect(serialized1).toContain('- [x] | Rest: 60 s | ~time: 2m | ~rest: 60s');
+		
+		// Parse back
+		const parsed2 = parseWorkout(serialized1);
+		
+		// Verify set totals are preserved
+		expect(parsed2.exercises[0].sets[0].recordedDuration).toBe('2m');
+		expect(parsed2.exercises[0].sets[0].recordedRest).toBe('60s');
+		// Note: duration format may vary slightly (spaces), so just check the value exists
+		expect(parsed2.exercises[0].sets[1].recordedDuration).toBeTruthy();
+		expect(parsed2.exercises[0].sets[1].recordedDuration?.replace(/\s+/g, '')).toBe('2m30s');
+		expect(parsed2.exercises[0].sets[1].recordedRest).toBe('60s');
+		
+		// Serialize again - exercise totals should be recalculated from set totals
+		const serialized2 = serializeWorkout(parsed2);
+		expect(serialized2).toContain('- [x] Squats | ~rest: 2m | ~time: 4m 30s');
 	});
 });

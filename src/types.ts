@@ -26,6 +26,8 @@ export interface ExerciseSet {
 	state: ExerciseState;
 	params: ExerciseParam[];
 	lineIndex: number;           // Line index relative to exercise section start
+	recordedDuration?: string;   // Actual elapsed time during the set (from timer)
+	recordedRest?: string;       // Actual elapsed time during rest period after this set
 }
 
 // Parsed metadata from the workout block header

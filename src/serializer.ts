@@ -1,6 +1,6 @@
-import { ParsedWorkout, Exercise, ExerciseState, ExerciseSet } from './types';
+import { ParsedWorkout, Exercise, ExerciseState, ExerciseSet, ExerciseParam } from './types';
 import { serializeMetadata } from './parser/metadata';
-import { serializeExercise, serializeSet, getStateChar } from './parser/exercise';
+import { serializeExercise, serializeSet, getStateChar, formatDurationHuman, parseDurationToSeconds } from './parser/exercise';
 
 export function serializeWorkout(parsed: ParsedWorkout): string {
 	const lines: string[] = [];
@@ -14,15 +14,134 @@ export function serializeWorkout(parsed: ParsedWorkout): string {
 
 	// Serialize exercises with their sets
 	for (const exercise of parsed.exercises) {
-		lines.push(serializeExercise(exercise));
+		// Enrich sets with their own totals, then use those to compute exercise totals
+		const enrichedExercise = enrichExerciseWithSetTotals(exercise);
+		lines.push(serializeExercise(enrichedExercise));
 		
-		// Serialize sets under the exercise
-		for (const set of exercise.sets) {
+		// Serialize enriched sets under the exercise
+		for (const set of enrichedExercise.sets) {
 			lines.push(serializeSet(set));
 		}
 	}
 
 	return lines.join('\n');
+}
+
+/**
+ * Enrich sets with their own totals (~time, ~rest), then compute exercise totals.
+ * For incomplete sets: strip any existing totals
+ * For completed sets: add ~time (duration) and ~rest (rest) params
+ * For incomplete exercises: strip exercise totals
+ * For completed exercises: sum set-level totals to create exercise totals
+ */
+function enrichExerciseWithSetTotals(exercise: Exercise): Exercise {
+	// First, enrich each set with its own totals
+	const enrichedSets = exercise.sets.map(set => enrichSetWithTotals(set));
+
+	// Remove old exercise totals
+	const paramsWithoutTotals = exercise.params.filter(
+		p => p.key.toLowerCase() !== '~time' && p.key.toLowerCase() !== '~rest'
+	);
+
+	// If exercise is incomplete, don't add totals
+	if (exercise.state !== 'completed') {
+		return {
+			...exercise,
+			sets: enrichedSets,
+			params: paramsWithoutTotals,
+		};
+	}
+
+	// For completed exercises, compute totals from set-level totals
+	const totalRest = sumSetTotals(enrichedSets, '~rest');
+	const totalTime = sumSetTotals(enrichedSets, '~time');
+
+	// Add exercise-level totals
+	if (totalRest) {
+		paramsWithoutTotals.push({
+			key: '~rest',
+			value: totalRest,
+			editable: false,
+			unit: '',
+		});
+	}
+
+	if (totalTime) {
+		paramsWithoutTotals.push({
+			key: '~time',
+			value: totalTime,
+			editable: false,
+			unit: '',
+		});
+	}
+
+	return {
+		...exercise,
+		sets: enrichedSets,
+		params: paramsWithoutTotals,
+	};
+}
+
+/**
+ * Enrich an individual set with its own totals (~time, ~rest).
+ * ~time comes from the set's recordedDuration (actual elapsed time during set)
+ * ~rest comes from the set's recordedRest (actual elapsed time during rest)
+ * For incomplete sets: strip any existing totals
+ */
+function enrichSetWithTotals(set: ExerciseSet): ExerciseSet {
+	// Remove old set totals
+	const paramsWithoutTotals = set.params.filter(
+		p => p.key.toLowerCase() !== '~time' && p.key.toLowerCase() !== '~rest'
+	);
+
+	// If set is incomplete, don't add totals
+	if (set.state !== 'completed') {
+		return {
+			...set,
+			params: paramsWithoutTotals,
+		};
+	}
+
+	// For completed sets, use recorded times as totals
+	if (set.recordedDuration) {
+		paramsWithoutTotals.push({
+			key: '~time',
+			value: set.recordedDuration,
+			editable: false,
+			unit: '',
+		});
+	}
+
+	if (set.recordedRest) {
+		paramsWithoutTotals.push({
+			key: '~rest',
+			value: set.recordedRest,
+			editable: false,
+			unit: '',
+		});
+	}
+
+	return {
+		...set,
+		params: paramsWithoutTotals,
+	};
+}
+
+/**
+ * Sum a specific total param (~time or ~rest) across all sets and return formatted string.
+ * Returns empty string if no totals found.
+ */
+function sumSetTotals(sets: ExerciseSet[], paramKey: string): string {
+	let totalSeconds = 0;
+
+	for (const set of sets) {
+		const param = set.params.find(p => p.key.toLowerCase() === paramKey.toLowerCase());
+		if (param?.value) {
+			totalSeconds += parseDurationToSeconds(param.value);
+		}
+	}
+
+	return totalSeconds > 0 ? formatDurationHuman(totalSeconds) : '';
 }
 
 // Update a specific param value in a workout (exercise-level params)
@@ -221,20 +340,31 @@ export function setSetRecordedDuration(
 	const set = exercise.sets[setIndex];
 	if (!set) return parsed;
 
-	// Find Duration param or add one
-	let durationParam = set.params.find(p => p.key.toLowerCase() === 'duration');
+	// Store actual elapsed time to recordedDuration (not Duration param)
+	set.recordedDuration = durationStr;
 
-	if (durationParam) {
-		durationParam.value = durationStr;
-		durationParam.editable = false;
-	} else {
-		// Add Duration param
-		set.params.push({
-			key: 'Duration',
-			value: durationStr,
-			editable: false
-		});
-	}
+	return newParsed;
+}
+
+/**
+ * Store the actual elapsed rest time for a specific set.
+ * Called after a rest period completes to record how long the rest actually took.
+ */
+export function setSetRecordedRest(
+	parsed: ParsedWorkout,
+	exerciseIndex: number,
+	setIndex: number,
+	restStr: string
+): ParsedWorkout {
+	const newParsed = structuredClone(parsed);
+	const exercise = newParsed.exercises[exerciseIndex];
+	if (!exercise) return parsed;
+
+	const set = exercise.sets[setIndex];
+	if (!set) return parsed;
+
+	// Store actual elapsed rest time to recordedRest (not Rest param)
+	set.recordedRest = restStr;
 
 	return newParsed;
 }

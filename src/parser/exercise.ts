@@ -94,18 +94,31 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 	const paramStrings = parts;
 
 	const params: ExerciseParam[] = [];
+	let recordedDuration: string | undefined;
+	let recordedRest: string | undefined;
 
 	for (const paramStr of paramStrings) {
 		const param = parseParam(paramStr);
 		if (param) {
-			params.push(param);
+			// Extract recorded times without adding them to params
+			if (param.key.toLowerCase() === '~time') {
+				recordedDuration = param.value;
+				// Don't add to params - these are computed values
+			} else if (param.key.toLowerCase() === '~rest') {
+				recordedRest = param.value;
+				// Don't add to params - these are computed values
+			} else {
+				params.push(param);
+			}
 		}
 	}
 
 	return {
 		state,
 		params,
-		lineIndex
+		lineIndex,
+		recordedDuration,
+		recordedRest
 	};
 }
 
@@ -177,13 +190,21 @@ function parseParam(paramStr: string): ExerciseParam | null {
 
 	if (!keyToken || !valueToken) return null;
 
+	// Only allow these parameters - all others are ignored
+	// ~time and ~rest are system-managed totals (not user-editable)
+	const allowedParams = ['duration', 'weight', 'reps', 'rest', '~time', '~rest'];
+	const paramKeyLower = keyToken.value.toLowerCase();
+	if (!allowedParams.includes(paramKeyLower)) {
+		return null; // Ignore unrecognized parameters
+	}
+
 	const unitToken = tokens.find(t => t.type === 'unit');
 
 	let finalValue = valueToken.value;
 	let finalUnit = unitToken?.value;
 
-	// For Duration, combine value and unit since they're part of duration syntax (e.g., "3m2s")
-	if (keyToken.value.toLowerCase() === 'duration' && finalUnit) {
+	// For Duration, ~time, and ~rest, combine value and unit since they're part of duration syntax (e.g., "3m2s")
+	if ((keyToken.value.toLowerCase() === 'duration' || keyToken.value.toLowerCase() === '~time' || keyToken.value.toLowerCase() === '~rest') && finalUnit) {
 		finalValue = finalValue + finalUnit;
 		finalUnit = undefined;
 	}

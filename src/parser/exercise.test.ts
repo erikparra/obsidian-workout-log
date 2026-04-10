@@ -425,22 +425,41 @@ describe('Integration tests', () => {
 		expect(exercise!.params).toHaveLength(0);
 	});
 
-	it('should handle param with only a value and no unit', () => {
-		const line = '- [ ] Exercise | Sets: 3';
+	it('should ignore params that are not on the allowed list', () => {
+		// Only Duration, Weight, Reps, and Rest are allowed
+		// Sets and Notes should be filtered out
+		const line = '- [ ] Exercise | Sets: 3 | Notes: [my note]';
 		const exercise = parseExercise(line, 0);
 
-		expect(exercise!.params[0].key).toBe('Sets');
-		expect(exercise!.params[0].value).toBe('3');
-		expect(exercise!.params[0].unit).toBeUndefined();
+		// Should have no params since Sets and Notes are not allowed
+		expect(exercise!.params).toHaveLength(0);
 	});
 
-	it('should handle bracketed params with spaces inside', () => {
-		const line = '- [ ] Exercise | Notes: [my note]';
+	it('should allow only whitelisted parameters', () => {
+		// All allowed params should be parsed correctly
+		const line = '- [ ] Exercise | Duration: [60s] | Weight: 20 lbs | Reps: [10] | Rest: 30s | Unknown: 5';
 		const exercise = parseExercise(line, 0);
 
-		expect(exercise!.params[0].key).toBe('Notes');
-		expect(exercise!.params[0].value).toBe('my note');
-		expect(exercise!.params[0].editable).toBe(true);
+		// Should have 4 params (Duration, Weight, Reps, Rest), Unknown should be filtered out
+		expect(exercise!.params).toHaveLength(4);
+		expect(exercise!.params[0].key).toBe('Duration');
+		expect(exercise!.params[1].key).toBe('Weight');
+		expect(exercise!.params[2].key).toBe('Reps');
+		expect(exercise!.params[3].key).toBe('Rest');
+	});
+
+	it('should allow system-managed totals parameters (~time and ~rest)', () => {
+		// ~time and ~rest are system-managed (locked) parameters
+		const line = '- [x] Exercise | ~rest: 5m | ~time: 30m';
+		const exercise = parseExercise(line, 0);
+
+		expect(exercise!.params).toHaveLength(2);
+		expect(exercise!.params[0].key).toBe('~rest');
+		expect(exercise!.params[0].value).toBe('5m');
+		expect(exercise!.params[0].editable).toBe(false);
+		expect(exercise!.params[1].key).toBe('~time');
+		expect(exercise!.params[1].value).toBe('30m');
+		expect(exercise!.params[1].editable).toBe(false);
 	});
 });
 

@@ -1,6 +1,6 @@
 import { Plugin, MarkdownPostProcessorContext } from 'obsidian';
 import { parseWorkout } from './parser';
-import { serializeWorkout, updateParamValue, updateSetParamValue, updateExerciseState, updateSetState, addSet, addRest, setRecordedDuration, setSetRecordedDuration, lockAllFields, createSampleWorkout } from './serializer';
+import { serializeWorkout, updateParamValue, updateSetParamValue, updateExerciseState, updateSetState, addSet, addRest, setRecordedDuration, setSetRecordedDuration, setSetRecordedRest, lockAllFields, createSampleWorkout } from './serializer';
 import { renderWorkout } from './renderer';
 import { TimerManager } from './timer/manager';
 import { FileUpdater } from './file/updater';
@@ -283,6 +283,17 @@ export default class WorkoutLogPlugin extends Plugin {
 		if (!exercise) return currentParsed;
 
 		const activeSetIndex = this.timerManager.getActiveSetIndex(workoutId);
+
+		// Record actual rest elapsed time before advancing
+		const timerState = this.timerManager.getTimerState(workoutId);
+		if (timerState && timerState.restElapsed !== undefined) {
+			currentParsed = setSetRecordedRest(
+				currentParsed,
+				exerciseIndex,
+				activeSetIndex,
+				formatDurationHuman(timerState.restElapsed)
+			);
+		}
 
 		// Rest finished, advance to next set
 		const nextSetIndex = activeSetIndex + 1;
