@@ -267,6 +267,21 @@ export default class WorkoutLogPlugin extends Plugin {
 	}
 
 	/**
+	 * Handles rest period initiation: starts the rest timer in the timer manager.
+	 * Called after a set is completed if a rest period is defined.
+	 */
+	private async handleRestStart(
+		ctx: MarkdownPostProcessorContext,
+		sectionInfo: SectionInfo | null,
+		workoutId: string,
+		exerciseIndex: number,
+		restDuration: number
+	): Promise<void> {
+		// Start counting down the rest period
+		this.timerManager.startRest(workoutId, restDuration);
+	}
+
+	/**
 	 * Handles rest period completion: advances to next set or exercise.
 	 * Called when user finishes rest between sets. Similar branching to handleSetFinish.
 	 */
@@ -657,21 +672,6 @@ export default class WorkoutLogPlugin extends Plugin {
 				);
 			}
 		};
-	}
-
-	/**
-	 * Handles rest period initiation: starts the rest timer in the timer manager.
-	 * Called after a set is completed if a rest period is defined.
-	 */
-	private async handleRestStart(
-		ctx: MarkdownPostProcessorContext,
-		sectionInfo: SectionInfo | null,
-		workoutId: string,
-		exerciseIndex: number,
-		restDuration: number
-	): Promise<void> {
-		// Start counting down the rest period
-		this.timerManager.startRest(workoutId, restDuration);
 	}
 
 	/**
