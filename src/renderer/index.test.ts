@@ -169,7 +169,7 @@ class MockElement {
 }
 
 describe('renderWorkout', () => {
-	let el: MockElement;
+	let containerElement: MockElement;
 	let timerManager: any;
 	let mockCallbacks: WorkoutCallbacks;
 	const mockWorkout: ParsedWorkout = {
@@ -189,40 +189,30 @@ describe('renderWorkout', () => {
 	};
 
 	beforeEach(() => {
-		el = new MockElement('div');
+		containerElement = new MockElement('div');
 		timerManager = new (TimerManager as any)();
 		mockCallbacks = {
-			onExerciseStateChange: jest.fn(),
-			onSetStateChange: jest.fn(),
 			onParamChange: jest.fn(),
 			onStartWorkout: jest.fn(),
-			onPauseWorkout: jest.fn(),
-			onResumeWorkout: jest.fn(),
-			onSkipExercise: jest.fn(),
-			onStartExerciseTimer: jest.fn(),
-			onExerciseRest: jest.fn(),
-			onExerciseRestPause: jest.fn(),
-			onExerciseRestResume: jest.fn(),
-			onExerciseRestDone: jest.fn(),
 			onExerciseFinish: jest.fn(),
 			onFlushChanges: jest.fn(),
 			onAddSample: jest.fn(),
-			onSetRecordedDuration: jest.fn(),
-			onChangeRestDuration: jest.fn(),
-			onAddRest: jest.fn(),
-			onAddSet: jest.fn(),
-			onRestEnd: jest.fn()
+			onRestEnd: jest.fn(),
+			onFinishWorkout: jest.fn(),
+			onSetFinish: jest.fn(),
+			onRestStart: jest.fn(),
+			onExerciseSkip: jest.fn(),
 		};
 		jest.clearAllMocks();
 	});
 
 	describe('Container initialization', () => {
 		it('should clear existing content', () => {
-			el.createDiv({ text: 'Old Content' });
-			expect(el.children.length).toBe(1);
+			containerElement.createDiv({ text: 'Old Content' });
+			expect(containerElement.children.length).toBe(1);
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -230,32 +220,32 @@ describe('renderWorkout', () => {
 			});
 
 			// After render, old content should be gone
-			expect(el.children.length).toBeGreaterThanOrEqual(1);
+			expect(containerElement.children.length).toBeGreaterThanOrEqual(1);
 		});
 
 		it('should create workout container', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container');
+			const container = containerElement.querySelector('.workout-container');
 			expect(container).toBeTruthy();
 		});
 
 		it('should add state class to container', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container');
+			const container = containerElement.querySelector('.workout-container');
 			expect(container?.className).toContain('state-planned');
 		});
 
@@ -266,14 +256,14 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: completedWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container');
+			const container = containerElement.querySelector('.workout-container');
 			expect(container?.className).toContain('state-completed');
 		});
 	});
@@ -282,7 +272,7 @@ describe('renderWorkout', () => {
 		it('should render header', () => {
 			const { renderHeader } = require('./header');
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -295,7 +285,7 @@ describe('renderWorkout', () => {
 		it('should pass workout metadata to header', () => {
 			const { renderHeader } = require('./header');
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -320,7 +310,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: emptyWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -336,7 +326,7 @@ describe('renderWorkout', () => {
 		it('should not render empty state for non-empty workout', () => {
 			const { renderEmptyState } = require('./emptyState');
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -354,7 +344,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: emptyCompletedWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -368,21 +358,21 @@ describe('renderWorkout', () => {
 	describe('Exercise rendering', () => {
 		it('should render exercises container', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-exercises');
+			const container = containerElement.querySelector('.workout-exercises');
 			expect(container).toBeTruthy();
 		});
 
 		it('should render each exercise', () => {
 			const { renderExercise } = require('./exercise');
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -415,7 +405,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: multiExerciseWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -427,14 +417,14 @@ describe('renderWorkout', () => {
 
 		it('should set max-name-chars CSS variable', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const exercisesContainer = el.querySelector('.workout-exercises');
+			const exercisesContainer = containerElement.querySelector('.workout-exercises');
 			expect((exercisesContainer?.style.setProperty as jest.Mock).mock.calls.some(
 				call => call[0] === '--max-name-chars'
 			)).toBe(true);
@@ -445,7 +435,7 @@ describe('renderWorkout', () => {
 		it('should render workout controls', () => {
 			const { renderWorkoutControls } = require('./controls');
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -458,7 +448,7 @@ describe('renderWorkout', () => {
 		it('should pass state to controls', () => {
 			const { renderWorkoutControls } = require('./controls');
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
@@ -477,27 +467,27 @@ describe('renderWorkout', () => {
 	describe('Focus event handling', () => {
 		it('should add focusout listener to container', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container') as MockElement;
+			const container = containerElement.querySelector('.workout-container') as MockElement;
 			expect(container?.listeners['focusout']).toBeDefined();
 		});
 
 		it('should call onFlushChanges when focus leaves container', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container') as MockElement;
+			const container = containerElement.querySelector('.workout-container') as MockElement;
 			const focusoutEvent = new Event('focusout') as any;
 			focusoutEvent.relatedTarget = null;
 
@@ -512,14 +502,14 @@ describe('renderWorkout', () => {
 
 		it('should not call onFlushChanges when focus moves within container', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container') as MockElement;
+			const container = containerElement.querySelector('.workout-container') as MockElement;
 			const targetEl = new MockElement('input');
 			container.children.push(targetEl);
 
@@ -541,14 +531,14 @@ describe('renderWorkout', () => {
 	describe('Timer subscription', () => {
 		it('should handle planned state', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container');
+			const container = containerElement.querySelector('.workout-container');
 			expect(container?.className).toContain('state-planned');
 		});
 
@@ -559,14 +549,14 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: startedWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container');
+			const container = containerElement.querySelector('.workout-container');
 			expect(container?.className).toContain('state-started');
 		});
 
@@ -577,14 +567,14 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: completedWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			const container = el.querySelector('.workout-container');
+			const container = containerElement.querySelector('.workout-container');
 			expect(container?.className).toContain('state-completed');
 		});
 	});
@@ -621,7 +611,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: parsedWorkout as any,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout:0',
@@ -662,7 +652,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: parsedWorkout as any,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout:0',
@@ -717,7 +707,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: parsedWorkout as any,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout:0',
@@ -766,7 +756,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: parsedWorkout as any,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout:0',
@@ -834,7 +824,7 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: parsedWorkout as any,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout:0',
@@ -871,26 +861,26 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: emptyWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			expect(el.children.length).toBeGreaterThan(0);
+			expect(containerElement.children.length).toBeGreaterThan(0);
 		});
 
 		it('should handle single exercise', () => {
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: mockWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			expect(el.children.length).toBeGreaterThan(0);
+			expect(containerElement.children.length).toBeGreaterThan(0);
 		});
 
 		it('should handle very long workout title', () => {
@@ -903,14 +893,14 @@ describe('renderWorkout', () => {
 			};
 
 			renderWorkout({
-				el,
+				containerElement,
 				parsed: longTitleWorkout,
 				callbacks: mockCallbacks,
 				workoutId: 'test-workout',
 				timerManager
 			});
 
-			expect(el.children.length).toBeGreaterThan(0);
+			expect(containerElement.children.length).toBeGreaterThan(0);
 		});
 	});
 });
