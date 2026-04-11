@@ -1,6 +1,9 @@
 import { Exercise, ExerciseSet, ExerciseState, ExerciseParam, Token } from '../types';
 
-// Checkbox patterns: [ ] pending, [\] inProgress, [x] completed, [-] skipped
+/**
+ * Maps checkbox characters to exercise/set states.
+ * Format: [state] where state = ' ' (pending), '\' (inProgress), 'x' (completed), '-' (skipped)
+ */
 const STATE_MAP: Record<string, ExerciseState> = {
 	' ': 'pending',
 	'\\': 'inProgress',
@@ -8,6 +11,10 @@ const STATE_MAP: Record<string, ExerciseState> = {
 	'-': 'skipped'
 };
 
+/**
+ * Reverse mapping: converts ExerciseState back to checkbox character.
+ * Used during serialization to write state back to markdown.
+ */
 const STATE_CHAR_MAP: Record<ExerciseState, string> = {
 	'pending': ' ',
 	'inProgress': '\\',
@@ -15,6 +22,14 @@ const STATE_CHAR_MAP: Record<ExerciseState, string> = {
 	'skipped': '-'
 };
 
+/**
+ * Tokenize a markdown checkbox line (exercise or set).
+ * Expected format: "- [STATE] REMAINDER" where STATE is a single character.
+ *
+ * Returns:
+ * - { stateChar, remainder } if valid checkbox found
+ * - null if line doesn't match checkbox pattern
+ */
 function tokenizeExerciseLine(line: string): { stateChar: string; remainder: string } | null {
 	// Check for leading dash
 	if (!line.startsWith('-')) return null;
@@ -38,6 +53,16 @@ function tokenizeExerciseLine(line: string): { stateChar: string; remainder: str
 	return { stateChar, remainder: afterBracket };
 }
 
+/**
+ * Parse a markdown exercise line into an Exercise object.
+ *
+ * Format: "- [STATE] Exercise Name | Key: [value] unit | Key: value"
+ *
+ * Special handling:
+ * - Duration params: editable [60s] = countdown target, locked 45s = recorded time
+ * - All other params are stored in exercise.params
+ * - Returns empty sets array (filled by parent parseWorkout)
+ */
 export function parseExercise(line: string, lineIndex: number): Exercise | null {
 	const tokenized = tokenizeExerciseLine(line);
 	if (!tokenized) return null;
@@ -58,7 +83,8 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 		if (param) {
 			params.push(param);
 
-			// Special handling for Duration key
+			// Extract duration information into dedicated fields
+			// Separate handling for countdown targets vs recorded times
 			if (param.key.toLowerCase() === 'duration') {
 				if (param.editable) {
 					// Editable duration = countdown target
@@ -75,13 +101,23 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 		state,
 		name,
 		params,
-		sets: [],
-		targetDuration,
-		recordedDuration,
+		sets: [],        // Set by parent parseWorkout, not by this function
+		targetDuration,  // Seconds: used for countdown timers
+		recordedDuration, // String: actual time recorded after completion
 		lineIndex
 	};
 }
 
+/**
+ * Parse a markdown set line (indented) into an ExerciseSet object.
+ *
+ * Format: "  - [STATE] | Key: [value] unit | Key: value"
+ *
+ * Special handling:
+ * - ~time and ~rest are extracted into recordedDuration/recordedRest fields
+ *   (these are system-computed values, not user params)
+ * - All other params are stored in set.params
+ */
 export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 	const trimmed = line.trim();
 	const tokenized = tokenizeExerciseLine(trimmed);
@@ -100,7 +136,8 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 	for (const paramStr of paramStrings) {
 		const param = parseParam(paramStr);
 		if (param) {
-			// Extract recorded times without adding them to params
+			// System-managed totals: store separately, don't include in params list
+			// These are computed during serialization and should not be editable
 			if (param.key.toLowerCase() === '~time') {
 				recordedDuration = param.value;
 				// Don't add to params - these are computed values
@@ -117,11 +154,27 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 		state,
 		params,
 		lineIndex,
-		recordedDuration,
-		recordedRest
+		recordedDuration, // Actual elapsed time during set
+		recordedRest      // Actual elapsed rest period after set
 	};
 }
 
+/**
+ * Tokenize a parameter string into semantic tokens.
+ *
+ * Format: "Key: [value] unit" or "Key: value unit"
+ * where [brackets] indicate editable values, no brackets = locked/readonly.
+ *
+ * Complex parsing logic:
+ * 1. Extract key (everything before first ":")
+ * 2. Check for bracketed value [content]
+ * 3. Parse unbracketed value with optional unit
+ *    - May be concatenated like "10kg" or "60s"
+ *    - May be separated like "10 kg" or "60 s"
+ * 4. Extract remaining text as unit
+ *
+ * Returns array of tokens with types: 'key', 'bracket'|'value', 'unit'
+ */
 function tokenizeParam(paramStr: string): Token[] {
 	const tokens: Token[] = [];
 
@@ -132,10 +185,11 @@ function tokenizeParam(paramStr: string): Token[] {
 	const key = paramStr.substring(0, colonIndex).trim();
 	tokens.push({ type: 'key', value: key });
 
-	// 2. Parse value and unit (after colon)
+	// Step 2: Parse value and unit (everything after the colon)
+	// Value may be bracketed [editable] or locked (no brackets)
 	let remainder = paramStr.substring(colonIndex + 1).trim();
 
-	// Check for bracketed value
+	// Check for bracketed value (editable)
 	if (remainder.startsWith('[')) {
 		const closeBracketIndex = remainder.indexOf(']');
 		if (closeBracketIndex !== -1) {
@@ -144,10 +198,12 @@ function tokenizeParam(paramStr: string): Token[] {
 			remainder = remainder.substring(closeBracketIndex + 1).trim();
 		}
 	} else if (remainder.length > 0) {
-		// Unbracketed value - read until space
+		// Unbracketed (locked) value - try to separate value and unit
 		const spaceIndex = remainder.indexOf(' ');
 		if (spaceIndex === -1) {
+			// No space - might be concatenated value+unit like "100kg" or "60s"
 			// No space - check if value and unit are concatenated (e.g., "10s", "60m")
+			// Find where numeric portion ends (digits and optional decimal point)
 			let numericEnd = 0;
 			for (let i = 0; i < remainder.length; i++) {
 				const char = remainder.charAt(i);
@@ -159,21 +215,22 @@ function tokenizeParam(paramStr: string): Token[] {
 			}
 
 			if (numericEnd > 0 && numericEnd < remainder.length) {
-				// Has both numeric value and non-numeric unit
+				// Split: numeric value + non-numeric unit (e.g., "100" + "kg")
 				tokens.push({ type: 'value', value: remainder.substring(0, numericEnd) });
 				remainder = remainder.substring(numericEnd);
 			} else {
-				// No unit attached or all numeric, entire remainder is value
+				// All numeric or all non-numeric, treat entire string as value
 				tokens.push({ type: 'value', value: remainder });
 				return tokens;
 			}
 		} else {
+			// Space found - everything before space is value, after is unit
 			tokens.push({ type: 'value', value: remainder.substring(0, spaceIndex) });
 			remainder = remainder.substring(spaceIndex).trim();
 		}
 	}
 
-	// 3. Parse unit (whatever remains)
+	// Step 3: Parse unit (any remaining text after value)
 	if (remainder) {
 		tokens.push({ type: 'unit', value: remainder });
 	}
@@ -181,6 +238,22 @@ function tokenizeParam(paramStr: string): Token[] {
 	return tokens;
 }
 
+/**
+ * Convert tokenized parameter into an ExerciseParam object.
+ *
+ * Validation:
+ * - Requires key and value tokens
+ * - Applies parameter whitelist (Duration, Weight, Reps, Rest, ~time, ~rest)
+ * - Unknown params are silently ignored
+ *
+ * Special logic for Duration/~time/~rest:
+ * - Combines numeric value + text unit into single value string
+ * - Examples: "60s", "1m 30s", "45.5kg"
+ *
+ * Returns:
+ * - ExerciseParam with key, value, editable flag, and optional unit
+ * - null if validation fails or param not whitelisted
+ */
 function parseParam(paramStr: string): ExerciseParam | null {
 	const tokens = tokenizeParam(paramStr);
 	if (tokens.length === 0) return null;
@@ -203,8 +276,10 @@ function parseParam(paramStr: string): ExerciseParam | null {
 	let finalValue = valueToken.value;
 	let finalUnit = unitToken?.value;
 
-	// For Duration, ~time, and ~rest, combine value and unit since they're part of duration syntax (e.g., "3m2s")
-	if ((keyToken.value.toLowerCase() === 'duration' || keyToken.value.toLowerCase() === '~time' || keyToken.value.toLowerCase() === '~rest') && finalUnit) {
+	// Duration formats use compound notation (e.g., "1m 30s"), so combine numeric + unit
+	// ~time and ~rest also follow duration format from serialization
+	const isDurationParam = ['duration', '~time', '~rest'].includes(keyToken.value.toLowerCase());
+	if (isDurationParam && finalUnit) {
 		finalValue = finalValue + finalUnit;
 		finalUnit = undefined;
 	}
@@ -217,7 +292,17 @@ function parseParam(paramStr: string): ExerciseParam | null {
 	};
 }
 
-// Parse duration string like "60s", "1:30", "1m 30s" to seconds
+/**
+ * Convert duration string to total seconds.
+ *
+ * Supports multiple formats:
+ * - "60s" → 60
+ * - "1:30" or "01:30" → 90
+ * - "1m 30s" or "1m30s" → 90
+ * - "45" → 45 (assumed seconds)
+ *
+ * Returns 0 if format is unrecognized.
+ */
 export function parseDurationToSeconds(durationStr: string): number {
 	const str = durationStr.trim();
 
@@ -252,14 +337,23 @@ export function parseDurationToSeconds(durationStr: string): number {
 	return 0;
 }
 
-// Format seconds to display string
+/**
+ * Format seconds as MM:SS (padded for display).
+ * Example: 90 → "1:30"
+ */
 export function formatDuration(seconds: number): string {
 	const mins = Math.floor(seconds / 60);
 	const secs = seconds % 60;
 	return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Format seconds to human readable string (e.g., "11m 33s")
+/**
+ * Format seconds as human-readable string.
+ * Examples:
+ * - 30 → "30s"
+ * - 90 → "1m 30s"
+ * - 120 → "2m"
+ */
 export function formatDurationHuman(seconds: number): string {
 	const mins = Math.floor(seconds / 60);
 	const secs = seconds % 60;
@@ -272,20 +366,37 @@ export function formatDurationHuman(seconds: number): string {
 	return `${mins}m ${secs}s`;
 }
 
+/**
+ * Get the checkbox character for a given exercise state.
+ * Inverse of STATE_MAP - used during serialization.
+ */
 export function getStateChar(state: ExerciseState): string {
 	return STATE_CHAR_MAP[state];
 }
 
+/**
+ * Serialize an Exercise object back to markdown.
+ *
+ * Format: "- [STATE] Exercise Name | Key: [value] unit | Key: value"
+ *
+ * Logic:
+ * - Converts state to checkbox character
+ * - Outputs params with editable values in brackets
+ * - Locked params (no brackets) are system-managed (like ~time, ~rest)
+ */
 export function serializeExercise(exercise: Exercise): string {
 	const stateChar = getStateChar(exercise.state);
 	let line = `- [${stateChar}] ${exercise.name}`;
 
+	// Append each parameter with proper formatting
 	for (const param of exercise.params) {
 		line += ' | ';
 		line += `${param.key}: `;
 		if (param.editable) {
+			// User-editable values shown in brackets
 			line += `[${param.value}]`;
 		} else {
+			// Locked (system-managed) values without brackets
 			line += param.value;
 		}
 		if (param.unit) {
@@ -297,9 +408,11 @@ export function serializeExercise(exercise: Exercise): string {
 }
 
 export function serializeSet(set: ExerciseSet): string {
+	// Indent all set lines 2 spaces relative to exercise line (indent = "  " prefix)
 	const stateChar = getStateChar(set.state);
 	let line = `  - [${stateChar}]`;
 
+	// Append each parameter using same format as exercise params
 	for (const param of set.params) {
 		line += ' | ';
 		line += `${param.key}: `;
