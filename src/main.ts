@@ -249,19 +249,32 @@ export default class WorkoutLogPlugin extends Plugin {
 				await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
 			}
 		} else {
-			// Last set in exercise - mark exercise as completed and look for next
-			currentParsed = updateExerciseState(currentParsed, exerciseIndex, 'completed');
+			// Last set in exercise - check if there's a rest period even after the last set
+			const lastSet = exercise.sets[setIndex];
+			if (!lastSet) return currentParsed;
+			const restParam = lastSet.params.find(p => p.key.toLowerCase() === 'rest');
 
-			const nextPending = this.findNextPendingExercise(exerciseIndex, currentParsed.exercises);
-
-			if (nextPending >= 0) {
-				// Found next exercise - activate it
-				currentParsed = updateExerciseState(currentParsed, nextPending, 'inProgress');
-				this.timerManager.advanceExercise(workoutId, nextPending);
+			if (restParam) {
+				// Has rest period after last set - save state first, then start rest
+				// When rest ends, handleRestEnd will detect this is the last set and advance to next exercise
 				await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
+				const restDurationSeconds = parseDurationToSeconds(restParam.value);
+				await handleRestStart(exerciseIndex, restDurationSeconds);
 			} else {
-				// No more exercises - complete the entire workout
-				await this.completeWorkout(currentParsed, ctx, sectionInfo, workoutId);
+				// No rest period - mark exercise as completed and look for next
+				currentParsed = updateExerciseState(currentParsed, exerciseIndex, 'completed');
+
+				const nextPending = this.findNextPendingExercise(exerciseIndex, currentParsed.exercises);
+
+				if (nextPending >= 0) {
+					// Found next exercise - activate it
+					currentParsed = updateExerciseState(currentParsed, nextPending, 'inProgress');
+					this.timerManager.advanceExercise(workoutId, nextPending);
+					await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
+				} else {
+					// No more exercises - complete the entire workout
+					await this.completeWorkout(currentParsed, ctx, sectionInfo, workoutId);
+				}
 			}
 		}
 
@@ -412,37 +425,72 @@ export default class WorkoutLogPlugin extends Plugin {
 		parsed: ParsedWorkout,
 		workoutId: string
 	): WorkoutCallbacks {
+		// Closure variable: tracks the latest workout state as user interacts
+		// Updated by updateFile() after each state change is persisted
+		// Accessible to all callbacks so they see consistent state
 		let currentParsed = parsed;
+		
+		// Closure variable: flag for debouncing parameter changes
+		// When user edits a param in the UI:
+		// 1. onParamChange sets hasPendingChanges = true (but doesn't save)
+		// 2. When user leaves the field, onFlushChanges is called
+		// 3. flushChanges() checks flag and only saves if true
+		// This reduces write frequency when user is rapidly typing
 		let hasPendingChanges = false;
 
+		// Helper: Persists state to file and updates closure variables
+		// All major workflow changes (start, finish, exercise transitions) call this
+		// Ensures file is always in sync with timer state
 		const updateFile = async (newParsed: ParsedWorkout): Promise<void> => {
+			// Update closure state to latest value
 			currentParsed = newParsed;
+			// Clear pending changes flag since we just flushed
 			hasPendingChanges = false;
+			// Serialize to markdown and write to file (also saves to properties if enabled)
 			await this.updateFileWithParsed(ctx, sectionInfo, newParsed);
 		};
 
+		// Helper: Saves pending parameter changes to file if any exist
+		// Called when user leaves a parameter field (onBlur event)
+		// If hasPendingChanges is true, calls updateFile to persist
+		// If false, does nothing (optimization - skip unnecessary writes)
 		const flushChanges = async (): Promise<void> => {
 			if (hasPendingChanges) {
+				// User made changes - persist them
 				await updateFile(currentParsed);
 			}
+			// If no pending changes, onFlushChanges is essentially a no-op
 		};
 
 		return {
+			// ===== WORKFLOW HANDLERS (Major state transitions) =====
+			
+			// User clicked "Start Workout" button
+			// Sets state to 'started', activates first exercise, starts timers
 			onStartWorkout: async (): Promise<void> => {
 				await this.handleStartWorkout(currentParsed, ctx, sectionInfo, workoutId);
 			},
 
+			// User clicked "Finish Workout" button or all exercises completed
+			// Captures total elapsed time, locks all fields, marks as 'completed'
 			onFinishWorkout: async (): Promise<void> => {
 				await this.handleFinishWorkout(currentParsed, ctx, sectionInfo, workoutId);
 			},
 
+			// Timer completed (either countdown finished or user clicked "Done")
+			// Routes to either handleRestEnd (if in rest period) or handleSetFinish (if in set)
+			// Determines what comes next: rest, next set, next exercise, or complete
 			onExerciseFinish: async (exerciseIndex: number): Promise<void> => {
+				// Check timer state to see if we're in rest period or active exercise
 				const activeSetIndex = this.timerManager.getActiveSetIndex(workoutId);
 				const timerState = this.timerManager.getTimerState(workoutId);
 				
+				// Route to appropriate handler based on whether rest is active
 				if (timerState?.isRestActive) {
+					// In rest period - advance to next set after rest
 					currentParsed = await this.handleRestEnd(exerciseIndex, currentParsed, ctx, sectionInfo, workoutId);
 				} else {
+					// In active set/exercise - finish set and check for rest or next
 					currentParsed = await this.handleSetFinish(
 						exerciseIndex,
 						activeSetIndex,
@@ -455,28 +503,41 @@ export default class WorkoutLogPlugin extends Plugin {
 				}
 			},
 
+			// Explicit set finish (alternative to onExerciseFinish when only marking a set complete)
+			// Called from UI when user clicks "Done" on a specific set
 			onSetFinish: async (exerciseIndex: number, setIndex: number): Promise<void> => {
 				currentParsed = await this.handleSetFinish(
 					exerciseIndex,
 					setIndex,
+					// Pass closure state and update it with returned value
 					currentParsed,
 					ctx,
 					sectionInfo,
 					workoutId,
+					// Callback for rest handling if this set has rest duration
 					async (exIdx: number, restDur: number) => {
 						await this.handleRestStart(ctx, sectionInfo, workoutId, exIdx, restDur);
 					}
 				);
 			},
 
+			// Rest period is starting (e.g., user clicked "Start Rest" or after auto-rest)
+			// Initializes countdown timer for the rest period
 			onRestStart: async (exerciseIndex: number, restDuration: number): Promise<void> => {
 				await this.handleRestStart(ctx, sectionInfo, workoutId, exerciseIndex, restDuration);
 			},
 
+			// Rest period is ending (countdown finished or user clicked "Skip Rest")
+			// Advances to next set after recording rest duration
 			onRestEnd: async (exerciseIndex: number): Promise<void> => {
 				currentParsed = await this.handleRestEnd(exerciseIndex, currentParsed, ctx, sectionInfo, workoutId);
 			},
 
+			// ===== USER ACTIONS (In-flight modifications) =====
+			
+			// User clicked "Add Set" button during exercise
+			// Clones the current set as template, records current time, advances timer
+			// Allows user to do more reps/sets than originally planned
 			onExerciseAddSet: async (exerciseIndex: number): Promise<void> => {
 				// User wants to add a set to current exercise while working out
 				// This records the current set duration before creating a new one
@@ -506,6 +567,8 @@ export default class WorkoutLogPlugin extends Plugin {
 				await updateFile(currentParsed);
 			},
 
+			// User clicked "Add Rest" button to insert unplanned rest
+			// Creates a Rest exercise at the next position and starts countdown
 			onExerciseAddRest: async (exerciseIndex: number): Promise<void> => {
 				// User wants to insert a rest period (creates a new rest exercise after current one)
 				const exercise = currentParsed.exercises[exerciseIndex];
@@ -515,7 +578,7 @@ export default class WorkoutLogPlugin extends Plugin {
 				const activeSetIndex = this.timerManager.getActiveSetIndex(workoutId);
 				const timerState = this.timerManager.getTimerState(workoutId);
 				
-				// Record how long the current set took
+				// Record how long the current set took before rest
 				if (timerState) {
 					currentParsed = setSetRecordedDuration(
 						currentParsed,
@@ -525,9 +588,10 @@ export default class WorkoutLogPlugin extends Plugin {
 					);
 				}
 
-				// Mark current set done, insert rest exercise at next position
+				// Mark current set done, insert new Rest exercise after current one
 				currentParsed = updateSetState(currentParsed, exerciseIndex, activeSetIndex, 'completed');
 				currentParsed = addRest(currentParsed, exerciseIndex, restDuration);
+				// Activate the rest exercise (this is at index exerciseIndex+1)
 				currentParsed = updateExerciseState(currentParsed, exerciseIndex + 1, 'inProgress');
 
 				// Update timer to track new rest exercise
@@ -535,11 +599,18 @@ export default class WorkoutLogPlugin extends Plugin {
 				await updateFile(currentParsed);
 			},
 
+			// User clicked "Skip" button to skip current set without completing it
+			// Marks as 'skipped' (not 'completed'), advances to next set or exercise
 			onExerciseSkip: async (exerciseIndex: number): Promise<void> => {
 				// User wants to skip current set/exercise
 				currentParsed = await this.handleExerciseSkip(exerciseIndex, currentParsed, ctx, sectionInfo, workoutId);
 			},
 
+			// ===== PARAMETER EDITING (Debounced changes) =====
+			
+			// User is editing an exercise-level param (e.g., weight field, notes)
+			// Debounced: doesn't save immediately, only sets flag for later flush
+			// This prevents excessive file writes while user is typing
 			onParamChange: (exerciseIndex: number, paramKey: string, newValue: string): void => {
 				// User edited an exercise param (e.g., weight, reps)
 				// Mark as pending change (debounced - won't save until blur/flush)
@@ -550,6 +621,8 @@ export default class WorkoutLogPlugin extends Plugin {
 				hasPendingChanges = true; // Flag for later flush
 			},
 
+			// User is editing a set-level param (e.g., reps field, weight field)
+			// Debounced: doesn't save immediately, only sets flag for later flush
 			onSetParamChange: (exerciseIndex: number, setIndex: number, paramKey: string, newValue: string): void => {
 				// User edited a set param (e.g., duration, weight, reps)
 				// Mark as pending change (debounced - won't save until blur/flush)
@@ -561,22 +634,36 @@ export default class WorkoutLogPlugin extends Plugin {
 				hasPendingChanges = true; // Flag for later flush
 			},
 
+			// User left a parameter field (blur event) - flush any pending changes
+			// Called after onParamChange/onSetParamChange to persist edited params
+			// Implementation is the flushChanges helper defined above
 			onFlushChanges: flushChanges,
 
+			// ===== TIMER CONTROLS (Pause/Resume) =====
+			
+			// User clicked "Pause" button - temporarily stops timer without finishing
+			// Exercise remains "in-progress", elapsed time recorded at pause point
 			onPauseExercise: (): void => {
 				// User paused the timer (stops counting but doesn't finish/advance)
 				this.timerManager.pauseExercise(workoutId);
 			},
 
+			// User clicked "Resume" after pausing - continues timer from pause point
+			// Resumes from the same elapsed time, not restarting
 			onResumeExercise: (): void => {
 				// User resumed the paused timer to continue counting
 				this.timerManager.resumeExercise(workoutId);
 			},
 
+			// ===== SPECIAL ACTIONS =====
+			
+			// User clicked "Load Sample Workout" button to populate empty workout
+			// Generates a demo workout with various exercise types for exploration
 			onAddSample: async (): Promise<void> => {
 				// User clicked "Load Sample" - creates a demo workout to explore features
 				const sampleWorkout = createSampleWorkout();
 				const newContent = serializeWorkout(sampleWorkout);
+				// Replace current workout with sample
 				await this.fileUpdater?.updateCodeBlock(
 					ctx.sourcePath,
 					sectionInfo,
