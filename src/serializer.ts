@@ -103,10 +103,10 @@ function enrichSetWithTotals(set: ExerciseSet): ExerciseSet {
 	}
 
 	// For completed sets, use recorded times as totals
-	if (set.recordedDuration) {
+	if (set.recordedTime) {
 		paramsWithoutTotals.push({
 			key: '~time',
-			value: set.recordedDuration,
+			value: set.recordedTime,
 			editable: false,
 			unit: '',
 		});
@@ -341,7 +341,7 @@ export function setSetRecordedDuration(
 	if (!set) return parsed;
 
 	// Store actual elapsed time to recordedDuration (not Duration param)
-	set.recordedDuration = durationStr;
+	set.recordedTime = durationStr;
 
 	return newParsed;
 }

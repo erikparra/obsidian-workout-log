@@ -130,7 +130,7 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 	const paramStrings = parts;
 
 	const params: ExerciseParam[] = [];
-	let recordedDuration: string | undefined;
+	let recordedTime: string | undefined;
 	let recordedRest: string | undefined;
 
 	for (const paramStr of paramStrings) {
@@ -139,7 +139,7 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 			// System-managed totals: store separately, don't include in params list
 			// These are computed during serialization and should not be editable
 			if (param.key.toLowerCase() === '~time') {
-				recordedDuration = param.value;
+				recordedTime = param.value;
 				// Don't add to params - these are computed values
 			} else if (param.key.toLowerCase() === '~rest') {
 				recordedRest = param.value;
@@ -154,7 +154,7 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 		state,
 		params,
 		lineIndex,
-		recordedDuration, // Actual elapsed time during set
+		recordedTime, // Actual elapsed time during set
 		recordedRest      // Actual elapsed rest period after set
 	};
 }

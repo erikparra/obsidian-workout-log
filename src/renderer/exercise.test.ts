@@ -843,8 +843,8 @@ describe('renderExercise & updateExerciseTimer', () => {
 					{ key: 'Reps', value: '30', editable: false, unit: '' }
 				],
 				sets: [
-					{ state: 'completed', params: [], recordedDuration: '3m' },
-					{ state: 'completed', params: [], recordedDuration: '2m 45s' }
+					{ state: 'completed', params: [], recordedTime: '3m' },
+					{ state: 'completed', params: [], recordedTime: '2m 45s' }
 				],
 				lineIndex: 0,
 				recordedDuration: '5m 45s'
@@ -1191,7 +1191,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 					{
 						state: 'completed',
 						params: [],
-						recordedDuration: '15m 30s'
+						recordedTime: '15m 30s'
 					}
 				],
 				lineIndex: 0
@@ -1384,7 +1384,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 					{
 						state: 'completed',
 						params: [],
-						recordedDuration: '2m 10s',
+						recordedTime: '2m 10s',
 						restDuration: '120s'
 					}
 				],
@@ -1628,7 +1628,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 				params: [],
 				sets: [
 					{ state: 'completed', params: [] },
-					{ state: 'completed', params: [], recordedDuration: '2m' },
+					{ state: 'completed', params: [], recordedTime: '2m' },
 					{ state: 'in-progress', params: [] },
 					{ state: 'pending', params: [] },
 					{ state: 'skipped', params: [] }

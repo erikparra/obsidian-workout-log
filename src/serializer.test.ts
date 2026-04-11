@@ -264,7 +264,7 @@ describe('setSetRecordedDuration', () => {
 		const updated = setSetRecordedDuration(parsed, 0, 0, '2m 30s');
 		
 		// Should store to recordedDuration field, not Duration param
-		expect(updated.exercises[0].sets[0].recordedDuration).toBe('2m 30s');
+		expect(updated.exercises[0].sets[0].recordedTime).toBe('2m 30s');
 	});
 });
 
@@ -321,8 +321,8 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set recorded durations (simulating actual elapsed time from timer)
-		parsed.exercises[0].sets[0].recordedDuration = '1m 30s';
-		parsed.exercises[0].sets[1].recordedDuration = '2m';
+		parsed.exercises[0].sets[0].recordedTime = '1m 30s';
+		parsed.exercises[0].sets[1].recordedTime = '2m';
 		
 		const serialized = serializeWorkout(parsed);
 		
@@ -335,9 +335,9 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set recorded times
-		parsed.exercises[0].sets[0].recordedDuration = '2m';
+		parsed.exercises[0].sets[0].recordedTime = '2m';
 		parsed.exercises[0].sets[0].recordedRest = '45s';
-		parsed.exercises[0].sets[1].recordedDuration = '2m';
+		parsed.exercises[0].sets[1].recordedTime = '2m';
 		parsed.exercises[0].sets[1].recordedRest = '45s';
 		
 		const serialized = serializeWorkout(parsed);
@@ -351,7 +351,7 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set recorded times (should overwrite old ~rest/~time from params)
-		parsed.exercises[0].sets[0].recordedDuration = '1m';
+		parsed.exercises[0].sets[0].recordedTime = '1m';
 		parsed.exercises[0].sets[0].recordedRest = '30s';
 		
 		const serialized = serializeWorkout(parsed);
@@ -368,7 +368,7 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set only recordedDuration
-		parsed.exercises[0].sets[0].recordedDuration = '1m';
+		parsed.exercises[0].sets[0].recordedTime = '1m';
 		
 		const serialized = serializeWorkout(parsed);
 		
@@ -394,7 +394,7 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set recorded times
-		parsed.exercises[0].sets[0].recordedDuration = '1m 30s';
+		parsed.exercises[0].sets[0].recordedTime = '1m 30s';
 		parsed.exercises[0].sets[0].recordedRest = '45s';
 		
 		const serialized = serializeWorkout(parsed);
@@ -411,7 +411,7 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set recorded times
-		parsed.exercises[0].sets[0].recordedDuration = '1m';
+		parsed.exercises[0].sets[0].recordedTime = '1m';
 		parsed.exercises[0].sets[0].recordedRest = '30s';
 		
 		const serialized = serializeWorkout(parsed);
@@ -427,11 +427,11 @@ describe('totals persistence (~time and ~rest)', () => {
 		const parsed = parseWorkout(source);
 		
 		// Set recorded times for each set
-		parsed.exercises[0].sets[0].recordedDuration = '2m';
+		parsed.exercises[0].sets[0].recordedTime = '2m';
 		parsed.exercises[0].sets[0].recordedRest = '60s';
-		parsed.exercises[0].sets[1].recordedDuration = '2m 30s';
+		parsed.exercises[0].sets[1].recordedTime = '2m 30s';
 		parsed.exercises[0].sets[1].recordedRest = '60s';
-		parsed.exercises[0].sets[2].recordedDuration = '2m 15s';
+		parsed.exercises[0].sets[2].recordedTime = '2m 15s';
 		parsed.exercises[0].sets[2].recordedRest = '45s';
 		
 		const serialized = serializeWorkout(parsed);
@@ -472,7 +472,7 @@ describe('totals persistence roundtrip', () => {
 		const parsed1 = parseWorkout(source);
 		
 		// Set recorded times
-		parsed1.exercises[0].sets[0].recordedDuration = '2m';
+		parsed1.exercises[0].sets[0].recordedTime = '2m';
 		parsed1.exercises[0].sets[0].recordedRest = '45s';
 		
 		// First serialize - should add ~time and ~rest
@@ -484,7 +484,7 @@ describe('totals persistence roundtrip', () => {
 		const parsed2 = parseWorkout(serialized1);
 		
 		// Check that ~time and ~rest were extracted into recordedDuration/recordedRest
-		expect(parsed2.exercises[0].sets[0].recordedDuration).toBe('2m');
+		expect(parsed2.exercises[0].sets[0].recordedTime).toBe('2m');
 		expect(parsed2.exercises[0].sets[0].recordedRest).toBe('45s');
 		
 		// Serialize again - should still have ~time and ~rest
@@ -494,7 +494,7 @@ describe('totals persistence roundtrip', () => {
 		
 		// Parse and check one more time
 		const parsed3 = parseWorkout(serialized2);
-		expect(parsed3.exercises[0].sets[0].recordedDuration).toBe('2m');
+		expect(parsed3.exercises[0].sets[0].recordedTime).toBe('2m');
 		expect(parsed3.exercises[0].sets[0].recordedRest).toBe('45s');
 	});
 
@@ -503,9 +503,9 @@ describe('totals persistence roundtrip', () => {
 		const parsed1 = parseWorkout(source);
 		
 		// Set recorded times for both sets
-		parsed1.exercises[0].sets[0].recordedDuration = '2m';
+		parsed1.exercises[0].sets[0].recordedTime = '2m';
 		parsed1.exercises[0].sets[0].recordedRest = '60s';
-		parsed1.exercises[0].sets[1].recordedDuration = '2m 30s';
+		parsed1.exercises[0].sets[1].recordedTime = '2m 30s';
 		parsed1.exercises[0].sets[1].recordedRest = '60s';
 		
 		// First serialize - should calculate exercise totals
@@ -517,11 +517,11 @@ describe('totals persistence roundtrip', () => {
 		const parsed2 = parseWorkout(serialized1);
 		
 		// Verify set totals are preserved
-		expect(parsed2.exercises[0].sets[0].recordedDuration).toBe('2m');
+		expect(parsed2.exercises[0].sets[0].recordedTime).toBe('2m');
 		expect(parsed2.exercises[0].sets[0].recordedRest).toBe('60s');
 		// Note: duration format may vary slightly (spaces), so just check the value exists
-		expect(parsed2.exercises[0].sets[1].recordedDuration).toBeTruthy();
-		expect(parsed2.exercises[0].sets[1].recordedDuration?.replace(/\s+/g, '')).toBe('2m30s');
+		expect(parsed2.exercises[0].sets[1].recordedTime).toBeTruthy();
+		expect(parsed2.exercises[0].sets[1].recordedTime?.replace(/\s+/g, '')).toBe('2m30s');
 		expect(parsed2.exercises[0].sets[1].recordedRest).toBe('60s');
 		
 		// Serialize again - exercise totals should be recalculated from set totals
