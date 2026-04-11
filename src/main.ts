@@ -229,52 +229,37 @@ export default class WorkoutLogPlugin extends Plugin {
 		// Step 2: Mark current set as completed
 		currentParsed = updateSetState(currentParsed, exerciseIndex, setIndex, 'completed');
 
-		// Step 3: Branch based on whether there are more sets in this exercise
-		if (setIndex < exercise.sets.length - 1) {
-			// More sets exist - check if current set has a rest period attached
-			const currentSet = exercise.sets[setIndex];
-			if (!currentSet) return currentParsed;
-			const restParam = currentSet.params.find(p => p.key.toLowerCase() === 'rest');
-			
-			if (restParam) {
-				// Has rest period - save state first, then start rest timer
-				await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
-				const restDurationSeconds = parseDurationToSeconds(restParam.value);
-				await handleRestStart(exerciseIndex, restDurationSeconds);
-			} else {
-				// No rest - advance immediately to next set
-				const nextSetIndex = setIndex + 1;
-				currentParsed = updateSetState(currentParsed, exerciseIndex, nextSetIndex, 'inProgress');
-				this.timerManager.advanceSet(workoutId, exerciseIndex, nextSetIndex);
-				await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
-			}
+		// Step 3: Check if current set has a rest period - logic is identical for both last and non-last sets
+		const set = exercise.sets[setIndex];
+		if (!set) return currentParsed;
+		const restParam = set.params.find(p => p.key.toLowerCase() === 'rest');
+
+		if (restParam) {
+			// Has rest period - save state first, then start rest timer
+			// This path applies whether it's the last set or not - handleRestEnd handles the logic after rest
+			await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
+			const restDurationSeconds = parseDurationToSeconds(restParam.value);
+			await handleRestStart(exerciseIndex, restDurationSeconds);
+		} else if (setIndex < exercise.sets.length - 1) {
+			// No rest AND more sets exist - advance immediately to next set
+			const nextSetIndex = setIndex + 1;
+			currentParsed = updateSetState(currentParsed, exerciseIndex, nextSetIndex, 'inProgress');
+			this.timerManager.advanceSet(workoutId, exerciseIndex, nextSetIndex);
+			await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
 		} else {
-			// Last set in exercise - check if there's a rest period even after the last set
-			const lastSet = exercise.sets[setIndex];
-			if (!lastSet) return currentParsed;
-			const restParam = lastSet.params.find(p => p.key.toLowerCase() === 'rest');
+			// No rest AND last set - mark exercise as completed and look for next exercise
+			currentParsed = updateExerciseState(currentParsed, exerciseIndex, 'completed');
 
-			if (restParam) {
-				// Has rest period after last set - save state first, then start rest
-				// When rest ends, handleRestEnd will detect this is the last set and advance to next exercise
+			const nextPending = this.findNextPendingExercise(exerciseIndex, currentParsed.exercises);
+
+			if (nextPending >= 0) {
+				// Found next exercise - activate it
+				currentParsed = updateExerciseState(currentParsed, nextPending, 'inProgress');
+				this.timerManager.advanceExercise(workoutId, nextPending);
 				await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
-				const restDurationSeconds = parseDurationToSeconds(restParam.value);
-				await handleRestStart(exerciseIndex, restDurationSeconds);
 			} else {
-				// No rest period - mark exercise as completed and look for next
-				currentParsed = updateExerciseState(currentParsed, exerciseIndex, 'completed');
-
-				const nextPending = this.findNextPendingExercise(exerciseIndex, currentParsed.exercises);
-
-				if (nextPending >= 0) {
-					// Found next exercise - activate it
-					currentParsed = updateExerciseState(currentParsed, nextPending, 'inProgress');
-					this.timerManager.advanceExercise(workoutId, nextPending);
-					await this.updateFileWithParsed(ctx, sectionInfo, currentParsed);
-				} else {
-					// No more exercises - complete the entire workout
-					await this.completeWorkout(currentParsed, ctx, sectionInfo, workoutId);
-				}
+				// No more exercises - complete the entire workout
+				await this.completeWorkout(currentParsed, ctx, sectionInfo, workoutId);
 			}
 		}
 
