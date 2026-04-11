@@ -407,6 +407,17 @@ export function serializeExercise(exercise: Exercise): string {
 	return line;
 }
 
+/**
+ * Serialize an ExerciseSet object back to markdown.
+ *
+ * Format: "  - [STATE] | Key: [value] unit | Key: value"
+ *
+ * Logic:
+ * - Converts state to checkbox character
+ * - Outputs params with editable values in brackets
+ * - Locked params (no brackets) are system-managed (like ~time, ~rest)
+ * - Indents with 2 spaces to nest under exercise
+ */
 export function serializeSet(set: ExerciseSet): string {
 	// Indent all set lines 2 spaces relative to exercise line (indent = "  " prefix)
 	const stateChar = getStateChar(set.state);

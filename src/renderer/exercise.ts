@@ -1,6 +1,33 @@
+/**
+ * Exercise and set rendering for workout blocks.
+ *
+ * Handles rendering of exercises and their nested sets with:
+ * - State indicators (pending, in-progress, completed, skipped)
+ * - Exercise/set parameters (duration, weight, reps, rest) as editable chips
+ * - Timer displays (countdown for exercises, count-up for sets)
+ * - Total aggregations (for multi-set exercises: total reps, weight, recorded time, rest)
+ * - Set-specific controls (pause, skip, add set, finish, etc.)
+ * - Rest phase color coding (green > yellow > red as time depletes)
+ *
+ * Architecture:
+ * - renderExercise() is the entry point, handles layout decisions
+ * - renderSet/renderSetWithTimerElement for multi-set rendering
+ * - renderSetControls() handles workout interaction buttons
+ * - updateExerciseTimer() efficiently updates timer during progress
+ * - Helper functions extract and compute exercise/set data
+ */
+
 import { Exercise, ExerciseSet, ExerciseParam, ExerciseState, TimerState, WorkoutCallbacks } from '../types';
 import { formatDuration, parseDurationToSeconds, formatDurationHuman } from '../parser/exercise';
 
+/**
+ * Visual indicators for exercise/set states.
+ * Maps ExerciseState to Unicode symbols:
+ * - pending: ○ (empty circle)
+ * - inProgress: ◐ (half circle)
+ * - completed: ✓ (checkmark)
+ * - skipped: — (dash)
+ */
 const STATE_ICONS: Record<ExerciseState, string> = {
 	'pending': '○',
 	'inProgress': '◐',
@@ -8,7 +35,16 @@ const STATE_ICONS: Record<ExerciseState, string> = {
 	'skipped': '—'
 };
 
-// Generate a consistent color hue from exercise name (djb2 hash with better distribution)
+/**
+ * Generate a consistent color hue from exercise name using djb2 hash.
+ * Ensures each exercise gets a unique, visually distinct color.
+ * Uses golden ratio distribution for better hue spread across color spectrum.
+ *
+ * Parameters:
+ * - name: Exercise name to hash
+ *
+ * Returns: Hue value (0-359) suitable for HSL color
+ */
 function nameToHue(name: string): number {
 	let hash = 5381;
 	for (let i = 0; i < name.length; i++) {
@@ -20,6 +56,17 @@ function nameToHue(name: string): number {
 	return Math.floor(((normalized * golden) % 1) * 360);
 }
 
+/**
+ * Context object for exercise rendering.
+ * Tracks DOM elements and input fields for later reference and updates.
+ *
+ * Properties:
+ * - container: Main exercise container element
+ * - timerEl: Timer display for exercise (null if multiple sets)
+ * - setTimerEl: Timer display for active set (for multi-set exercises)
+ * - inputs: Exercise-level parameters as editable inputs (by key)
+ * - setInputs: Set-level parameters grouped by set index, then by key
+ */
 export interface ExerciseElements {
 	container: HTMLElement;
 	timerEl: HTMLElement | null;
@@ -28,7 +75,15 @@ export interface ExerciseElements {
 	setInputs: Map<number, Map<string, HTMLInputElement>>;  // Indexed by set index
 }
 
-// Check if set has params to display (includes duration, weight, reps in order)
+/**
+ * Check if a set has displayable parameters (duration, weight, reps).
+ * Used to decide whether to render parameters section for a set.
+ *
+ * Parameters:
+ * - set: ExerciseSet to check
+ *
+ * Returns: true if set contains at least one displayable param
+ */
 function hasDisplayableSetParams(set: ExerciseSet): boolean {
 	return set.params.some(p => {
 		const key = p.key.toLowerCase();
@@ -36,7 +91,16 @@ function hasDisplayableSetParams(set: ExerciseSet): boolean {
 	});
 }
 
-// Get params to display in order: duration, weight, reps (only if provided)
+/**
+ * Extract displayable set parameters in a specific order.
+ * Only returns: duration, weight, reps (if present).
+ * Other parameters are ignored for set-level display.
+ *
+ * Parameters:
+ * - set: ExerciseSet containing parameters
+ *
+ * Returns: Array of params in order [duration, weight, reps]
+ */
 function getDisplayableSetParams(set: ExerciseSet): ExerciseParam[] {
 	const paramOrder = ['duration', 'weight', 'reps'];
 	const paramsMap = new Map<string, ExerciseParam>();
@@ -61,19 +125,50 @@ function getDisplayableSetParams(set: ExerciseSet): ExerciseParam[] {
 	return orderedParams;
 }
 
-// Get recorded duration from a set (if any)
+/**
+ * Extract recorded duration from a set (system-managed ~time param).
+ * Recorded durations are locked (not editable) params created after set completion.
+ *
+ * Parameters:
+ * - set: ExerciseSet to extract from
+ *
+ * Returns: Recorded duration string (e.g., "1m 30s") or null if not recorded
+ */
 function getSetRecordedDuration(set: ExerciseSet): string | null {
 	const durationParam = set.params.find(p => p.key.toLowerCase() === 'duration' && !p.editable);
 	return durationParam ? durationParam.value : null;
 }
 
-// Get rest duration from a set (if any)
+/**
+ * Extract rest duration from a set's rest parameter.
+ * Rest is the period between sets (after completing one set, before starting next).
+ *
+ * Parameters:
+ * - set: ExerciseSet to extract from
+ *
+ * Returns: Rest duration string (e.g., "60s") or null if not set
+ */
 function getSetRestDuration(set: ExerciseSet): string | null {
 	const restParam = set.params.find(p => p.key.toLowerCase() === 'rest');
 	return restParam ? restParam.value : null;
 }
 
-// Compute totals from all sets
+/**
+ * Aggregate totals from all sets in an exercise.
+ * Sums reps, weight, and recorded times across all sets.
+ * Used for display on multi-set exercise main row.
+ *
+ * Parameters:
+ * - exercise: Exercise to aggregate
+ * - isCompleted: Whether exercise is completed (affects which fields to sum)
+ *
+ * Returns: Object with aggregated totals
+ * - reps: Total reps (null if no reps params present)
+ * - weight: Total weight (null if no weight params present)
+ * - duration: Target duration (from exercise.targetDuration)
+ * - totalRecordedTime: Sum of recorded durations from all sets
+ * - totalRest: Sum of rest periods from all sets
+ */
 function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): { 
 	reps: number | null; 
 	weight: number | null; 
@@ -104,7 +199,7 @@ function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): {
 					weightFound = true;
 				}
 			} else if (param.key.toLowerCase() === 'rest') {
-				// Sum rest durations from all sets (only if editable, meaning user-set)
+				// Sum rest durations from all sets (only editable means user-configured)
 				if (param.editable) {
 					const restSeconds = parseDurationToSeconds(param.value);
 					totalRest += restSeconds;
@@ -112,11 +207,11 @@ function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): {
 			}
 		}
 
-		// If exercise is completed, sum up recorded durations from each set
+		// If exercise is completed, sum recorded durations from each set
 		if (isCompleted) {
 			for (const param of set.params) {
 				if (param.key.toLowerCase() === 'duration' && !param.editable) {
-					// This is a recorded duration (not editable means it's recorded)
+					// Non-editable duration = recorded time (captured during set)
 					const seconds = parseDurationToSeconds(param.value);
 					totalRecordedTime += seconds;
 				}
@@ -133,6 +228,28 @@ function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): {
 	};
 }
 
+/**
+ * Render an exercise with all its sets and current state.
+ *
+ * Determines layout based on exercise structure:
+ * - Single set: renders on main row (icon | name | params | timer)
+ * - Multiple sets: renders as separate indented rows per set
+ * - Active during workout: displays timer and control buttons
+ *
+ * Parameters:
+ * - container: Parent DOM element to render into
+ * - exercise: Exercise object with sets and metadata
+ * - index: Exercise index in parent workout
+ * - isActive: Whether this exercise is currently active (timer running)
+ * - activeSetIndex: Index of active set (if isActive)
+ * - timerState: Current timer state (if isActive)
+ * - callbacks: User action handlers
+ * - workoutState: Current workout state (planned/started/completed)
+ * - restDuration: Default rest duration (from metadata)
+ * - totalExercises: Total count of exercises (for button labels)
+ *
+ * Returns: ExerciseElements with references to rendered elements
+ */
 export function renderExercise(
 	container: HTMLElement,
 	exercise: Exercise,
@@ -155,9 +272,9 @@ export function renderExercise(
 
 	const inputs = new Map<string, HTMLInputElement>();
 	const setInputs = new Map<number, Map<string, HTMLInputElement>>();
-	let setTimerEl: HTMLElement | null = null;  // Track active set timer for updates
+	let setTimerEl: HTMLElement | null = null;  // Track active set timer for timer updates
 
-	// Single row: icon | name | params | timer
+	// Single row layout: icon | name | params | timer
 	const mainRow = exerciseEl.createDiv({ cls: 'workout-exercise-main' });
 
 	// State icon
@@ -168,12 +285,12 @@ export function renderExercise(
 	const nameEl = mainRow.createSpan({ cls: 'workout-exercise-name' });
 	nameEl.textContent = exercise.name;
 
-	// Determine if exercise has multiple sets
+	// Determine multi-set layout and calculate totals
 	const hasMultipleSets = exercise.sets.length > 1;
 	const isCompleted = exercise.state === 'completed';
 	const totals = computeExerciseTotals(exercise, isCompleted);
 	
-	// For multi-set exercises, display totals from all sets
+	// Display totals on multi-set exercise main row
 	if (hasMultipleSets && (totals.reps !== null || totals.weight !== null || (isCompleted && totals.totalRecordedTime > 0) || totals.totalRest > 0)) {
 		const totalsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
 
@@ -191,7 +308,7 @@ export function renderExercise(
 			repsEl.createSpan({ cls: 'workout-param-value', text: String(totals.reps) });
 		}
 
-		// Show total recorded time when completed 
+		// Show total recorded time when completed
 		// TODO: change this to show total duration if provided.
 		if (isCompleted && totals.totalRecordedTime > 0) {
 			const timeEl = totalsEl.createSpan({ cls: 'workout-param' });
@@ -206,8 +323,8 @@ export function renderExercise(
 		}
 	}
 
-	// Params inline (between name and timer) - chip/pill style
-	// For multi-set exercises, only totals are shown, not exercise params
+	// Parameters inline (chip/pill style) - between name and timer
+	// For multi-set exercises, only totals shown (not exercise params)
 	if (exercise.params.length > 0 && !hasMultipleSets) {
 		const paramsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
 
@@ -293,7 +410,8 @@ export function renderExercise(
 		}
 	}
 
-	// Timer display (right side) - show on mainRow if no sets or single set, otherwise on active set
+	// Timer display (right side of mainRow)
+	// Shown on mainRow if no sets or single set, otherwise on active set
 	let timerEl: HTMLElement | null = null;
 	
 	if (exercise.sets.length === 0 || !hasMultipleSets) {
@@ -360,6 +478,10 @@ export function renderExercise(
 	return { container: exerciseEl, timerEl, setTimerEl, inputs, setInputs };
 }
 
+/**
+ * Render a set row (simple delegation to renderSetWithTimerElement).
+ * Exists for semantic clarity - differentiates set rendering from set-with-timer rendering.
+ */
 function renderSet(
 	container: HTMLElement,
 	set: ExerciseSet,
@@ -374,6 +496,29 @@ function renderSet(
 	renderSetWithTimerElement(container, set, setIndex, exerciseIndex, isActive, timerState, callbacks, workoutState, setInputs);
 }
 
+/**
+ * Render a set row with timer element.
+ *
+ * Creates indented set row with:
+ * - State icon and "Set N" label
+ * - Set parameters (duration, weight, reps) as chips
+ * - Rest duration display
+ * - Timer display (if active)
+ * - Rest phase color coding (green/yellow/red based on remaining time)
+ *
+ * Parameters:
+ * - container: Parent DOM element
+ * - set: ExerciseSet to render
+ * - setIndex: Index of this set (0-based)
+ * - exerciseIndex: Index of parent exercise
+ * - isActive: Whether this set is currently active
+ * - timerState: Current timer state (if active)
+ * - callbacks: User action handlers
+ * - workoutState: Workout state (planned/started/completed)
+ * - setInputs: Map to track input elements by set index and key
+ *
+ * Returns: Timer element (for active sets) or null
+ */
 function renderSetWithTimerElement(
 	container: HTMLElement,
 	set: ExerciseSet,
@@ -395,11 +540,11 @@ function renderSetWithTimerElement(
 	const iconEl = setRow.createSpan({ cls: 'workout-set-icon' });
 	iconEl.textContent = STATE_ICONS[set.state];
 
-	// Set label
+	// Set label ("Set 1", "Set 2", etc.)
 	const labelEl = setRow.createSpan({ cls: 'workout-set-label' });
 	labelEl.textContent = `Set ${setIndex + 1}`;
 
-	// Set params as inline chips
+	// Set parameters as inline chips
 	if (hasDisplayableSetParams(set)) {
 		const paramsEl = setRow.createSpan({ cls: 'workout-set-params' });
 
@@ -442,7 +587,7 @@ function renderSetWithTimerElement(
 		setInputs.set(setIndex, setParamInputs);
 	}
 
-	// Show recorded duration for completed sets (similar to exercise totals)
+	// Show recorded duration for completed sets
 	const recordedDuration = getSetRecordedDuration(set);
 	if (recordedDuration && workoutState === 'completed') {
 		const setDurationEl = setRow.createSpan({ cls: 'workout-set-duration' });
@@ -462,27 +607,27 @@ function renderSetWithTimerElement(
 	if (isActive && timerState) {
 		timerEl = setRow.createSpan({ cls: 'workout-set-timer' });
 		
-		// If in rest mode, show rest timer
+		// In rest mode: show rest timer with phase-based color coding
 		if (timerState.isRestActive && timerState.restRemaining !== undefined) {
 			const restDuration = restDurationStr ? parseDurationToSeconds(restDurationStr) : 0;
 			const remaining = timerState.restRemaining;
 			
-			// Calculate rest progress and apply color phase class
+			// Apply color phase classes based on rest progress
 			if (restDuration > 0) {
 				const restProgress = remaining / restDuration;
 				
 				if (restProgress > 0.66) {
-					// Green phase: 66-100% remaining
+					// Green: 66-100% remaining
 					setEl.removeClass('rest-phase-yellow');
 					setEl.removeClass('rest-phase-red');
 					setEl.addClass('rest-phase-green');
 				} else if (restProgress > 0.33) {
-					// Yellow phase: 33-66% remaining
+					// Yellow: 33-66% remaining
 					setEl.removeClass('rest-phase-green');
 					setEl.removeClass('rest-phase-red');
 					setEl.addClass('rest-phase-yellow');
 				} else {
-					// Red phase: 0-33% remaining
+					// Red: 0-33% remaining
 					setEl.removeClass('rest-phase-green');
 					setEl.removeClass('rest-phase-yellow');
 					setEl.addClass('rest-phase-red');
@@ -493,12 +638,13 @@ function renderSetWithTimerElement(
 				timerEl.textContent = formatDuration(remaining);
 				timerEl.createSpan({ cls: 'timer-indicator rest', text: ' ⏸' });
 			} else {
+				// Rest time exceeded (overtime)
 				timerEl.textContent = formatDuration(Math.abs(remaining));
 				timerEl.addClass('rest-overtime');
 				timerEl.createSpan({ cls: 'timer-indicator', text: ' ⏸' });
 			}
 		} else {
-			// Show exercise timer
+			// Not in rest: show exercise timer (count-up or countdown)
 			updateExerciseTimer(timerEl, timerState, undefined);
 		}
 	}
@@ -506,6 +652,30 @@ function renderSetWithTimerElement(
 	return timerEl;
 }
 
+/**
+ * Render workout control buttons for an active exercise.
+ *
+ * Displays buttons for:
+ * - Pause/Resume: Toggle workout timer
+ * - Skip: Mark exercise as skipped
+ * - + Set: Add additional set to exercise
+ * - + Rest: Add rest period after set (if restDuration defined)
+ * - [Next Set|Next|Done]: Finish current set and advance
+ *
+ * Button text adapts based on:
+ * - Rest state: "Start Next" during rest, otherwise "Next Set"/"Next"/"Done"
+ * - Position: "Next Set" for mid-exercise, "Next" for last set w/ more exercises, "Done" for final set
+ *
+ * Parameters:
+ * - exerciseEl: Exercise container to add controls to
+ * - exerciseIndex: Index of current exercise
+ * - setIndex: Index of current set
+ * - totalSets: Total number of sets in exercise
+ * - callbacks: User action handlers
+ * - restDuration: Default rest duration (if defined, show "+ Rest" button)
+ * - timerState: Current timer state (for rest detection)
+ * - totalExercises: Total exercises in workout (for button labeling)
+ */
 function renderSetControls(
 	exerciseEl: HTMLElement,
 	exerciseIndex: number,
@@ -518,7 +688,7 @@ function renderSetControls(
 ): void {
 	const controlsEl = exerciseEl.createDiv({ cls: 'workout-exercise-controls' });
 
-	// Pause/Resume button
+	// Pause/Resume toggle button
 	const pauseBtn = controlsEl.createEl('button', { cls: 'workout-btn', text: 'Pause' });
 	pauseBtn.addEventListener('click', () => {
 		if (pauseBtn.textContent === 'Pause') {
@@ -530,22 +700,22 @@ function renderSetControls(
 		}
 	});
 
-	// Skip button
+	// Skip button (marks exercise as skipped)
 	const skipBtn = controlsEl.createEl('button', { cls: 'workout-btn', text: 'Skip' });
 	skipBtn.addEventListener('click', () => {
 		callbacks.onExerciseSkip(exerciseIndex);
 	});
 
-	// Finish group container
+	// Group for finish buttons
 	const finishGroup = controlsEl.createDiv({ cls: 'workout-btn-group' });
 
-	// Add Set button (for additional sets)
+	// Add Set button (to add more sets to exercise)
 	const addSetBtn = finishGroup.createEl('button', { cls: 'workout-btn', text: '+ Set' });
 	addSetBtn.addEventListener('click', () => {
 		callbacks.onExerciseAddSet(exerciseIndex);
 	});
 
-	// Add Rest button (only if restDuration is defined)
+	// Add Rest button (only if restDuration defined in metadata)
 	if (restDuration !== undefined) {
 		const addRestBtn = finishGroup.createEl('button', { cls: 'workout-btn', text: '+ Rest' });
 		addRestBtn.addEventListener('click', () => {
@@ -553,19 +723,22 @@ function renderSetControls(
 		});
 	}
 
-	// Determine button text based on rest state
+	// Determine next button text based on position and state
 	let nextBtnText: string;
 	if (timerState?.isRestActive) {
-		// During rest, show "Skip Rest" or "Start Next"
+		// During rest period, offer to start next
 		nextBtnText = 'Start Next';
 	} else {
 		const isLastSet = setIndex === totalSets - 1;
 		const isLastExercise = typeof totalExercises === 'number' ? (exerciseIndex === totalExercises - 1) : false;
 		if (isLastSet && !isLastExercise) {
+			// Last set, but more exercises ahead
 			nextBtnText = 'Next';
 		} else if (isLastSet && isLastExercise) {
+			// Final set of final exercise
 			nextBtnText = 'Done';
 		} else {
+			// Not last set
 			nextBtnText = 'Next Set';
 		}
 	}
@@ -573,7 +746,7 @@ function renderSetControls(
 	const nextBtn = finishGroup.createEl('button', { cls: 'workout-btn', text: nextBtnText });
 	nextBtn.addEventListener('click', () => {
 		if (timerState?.isRestActive) {
-			// Currently in rest period, end it and advance to next set
+			// Currently in rest, end it and advance
 			callbacks.onRestEnd(exerciseIndex);
 		} else {
 			// Finishing a set, may start rest or advance
@@ -582,6 +755,21 @@ function renderSetControls(
 	});
 }
 
+/**
+ * Update exercise/set timer display during workout progress.
+ *
+ * Displays timer in two modes:
+ * - Countdown (targetDuration defined): Shows remaining time until target
+ *   - Green icon ▼ when time remaining
+ *   - Warning ⚠ + red "overtime" class when exceeded
+ * - Count-up (no targetDuration): Shows elapsed time from set start
+ *   - Count-up icon ▲ to distinguish from countdown
+ *
+ * Parameters:
+ * - timerEl: Timer element to update
+ * - timerState: Current timer state with elapsed times
+ * - targetDuration: Target duration in seconds (if null/undefined, count-up mode)
+ */
 export function updateExerciseTimer(
 	timerEl: HTMLElement,
 	timerState: TimerState,
@@ -590,19 +778,20 @@ export function updateExerciseTimer(
 	timerEl.empty();
 
 	if (targetDuration !== undefined) {
-		// Countdown mode
+		// Countdown mode: show remaining time vs target
 		const remaining = targetDuration - timerState.exerciseElapsed;
 		if (remaining > 0) {
+			// Time remaining: show countdown with ▼ indicator
 			timerEl.textContent = formatDuration(remaining);
 			timerEl.createSpan({ cls: 'timer-indicator count-down', text: ' ▼' });
 		} else {
-			// Overtime
+			// Overtime: show absolute value in red with warning icon
 			timerEl.textContent = formatDuration(Math.abs(remaining));
 			timerEl.addClass('overtime');
 			timerEl.createSpan({ cls: 'timer-indicator overtime', text: ' ⚠' });
 		}
 	} else {
-		// Count up mode
+		// Count-up mode: show elapsed time from start (no target limit)
 		timerEl.textContent = formatDuration(timerState.exerciseElapsed);
 		timerEl.createSpan({ cls: 'timer-indicator count-up', text: ' ▲' });
 	}

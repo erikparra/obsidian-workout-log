@@ -45,17 +45,17 @@ export default class WorkoutLogPlugin extends Plugin {
 	 * 5. Render the UI and connect timers
 	 * 
 	 * @param source - Raw markdown text from the code block
-	 * @param el - DOM element where UI should be rendered
+	 * @param containerElement - DOM element where UI should be rendered
 	 * @param ctx - Obsidian context (has file path, section info, etc)
 	 */
 	private processWorkoutBlock(
 		source: string,
-		el: HTMLElement,
+		containerElement: HTMLElement,
 		ctx: MarkdownPostProcessorContext
 	): void {
 		// Parse markdown source into ParsedWorkout structure
 		const parsed = parseWorkout(source);
-		const sectionInfo = ctx.getSectionInfo(el) as SectionInfo | null;
+		const sectionInfo = ctx.getSectionInfo(containerElement) as SectionInfo | null;
 
 		// Warn if sectionInfo is null - this can cause issues with multiple workouts
 		if (!sectionInfo) {
@@ -87,7 +87,7 @@ export default class WorkoutLogPlugin extends Plugin {
 
 		// Render the UI and wire up the timers and callbacks
 		renderWorkout({
-			el,
+			containerElement,
 			parsed,
 			callbacks,
 			workoutId,

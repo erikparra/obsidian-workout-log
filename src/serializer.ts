@@ -1,15 +1,50 @@
+/**
+ * Serialization layer: Convert parsed workout data structures back to markdown format.
+ *
+ * Responsibilities:
+ * - Convert ParsedWorkout objects back to markdown strings
+ * - Manage system totals (~time and ~rest) for exercises and sets
+ * - Enrich completed sets/exercises with their calculated totals
+ * - Support workflow operations: state changes, param updates, adding sets/exercises
+ * - Generate templates for copying/reuse
+ *
+ * System Totals:
+ * - ~time: Accumulated duration for completed set or exercise
+ * - ~rest: Accumulated rest time for completed set or exercise
+ * - Automatically calculated from set-level totals when exercise completes
+ * - Stripped on parse to avoid parse-induced changes
+ * - Restored on serialize for display/export
+ *
+ * Key Design Patterns:
+ * - Always use structuredClone() for immutability
+ * - Parameter updates maintain editable state (editable params keep [brackets])
+ * - Recorded times separate from display/target Duration params
+ * - Sample workouts used for template generation and UI demos
+ */
+
 import { ParsedWorkout, Exercise, ExerciseState, ExerciseSet, ExerciseParam } from './types';
 import { serializeMetadata } from './parser/metadata';
 import { serializeExercise, serializeSet, getStateChar, formatDurationHuman, parseDurationToSeconds } from './parser/exercise';
 
+/**
+ * Convert a parsed workout back to markdown format.
+ *
+ * Process:
+ * 1. Serialize metadata (title, state, dates, duration)
+ * 2. Add separator (---)
+ * 3. Enrich exercises with their set totals
+ * 4. Serialize each exercise and its sets
+ *
+ * Returns: Complete markdown string ready to write back to file
+ */
 export function serializeWorkout(parsed: ParsedWorkout): string {
 	const lines: string[] = [];
 
-	// Serialize metadata
+	// Serialize metadata (title, state, dates, duration)
 	const metadataLines = serializeMetadata(parsed.metadata);
 	lines.push(...metadataLines);
 
-	// Add separator
+	// Add separator between metadata and exercises
 	lines.push('---');
 
 	// Serialize exercises with their sets
@@ -28,22 +63,36 @@ export function serializeWorkout(parsed: ParsedWorkout): string {
 }
 
 /**
- * Enrich sets with their own totals (~time, ~rest), then compute exercise totals.
- * For incomplete sets: strip any existing totals
- * For completed sets: add ~time (duration) and ~rest (rest) params
- * For incomplete exercises: strip exercise totals
- * For completed exercises: sum set-level totals to create exercise totals
+ * Enrich an exercise with system totals (~time, ~rest) based on completed sets.
+ *
+ * Process for INCOMPLETE exercises:
+ * - Strip any existing ~time and ~rest params
+ * - Keep other exercise-level params unchanged
+ * - Don't add totals (nothing to total yet)
+ *
+ * Process for COMPLETED exercises:
+ * - Strip any existing ~time and ~rest params
+ * - Enrich all sets with their own totals (recordedTime/recordedRest)
+ * - Sum set-level totals to create exercise-level totals
+ * - Add exercise ~time and ~rest params
+ *
+ * Used during serialization to ensure totals are accurate and up-to-date.
+ *
+ * Parameters:
+ * - exercise: Exercise with potentially stale totals from previous serialize
+ *
+ * Returns: Enriched exercise with fresh totals
  */
 function enrichExerciseWithSetTotals(exercise: Exercise): Exercise {
 	// First, enrich each set with its own totals
 	const enrichedSets = exercise.sets.map(set => enrichSetWithTotals(set));
 
-	// Remove old exercise totals
+	// Remove old exercise totals (will recalculate if needed)
 	const paramsWithoutTotals = exercise.params.filter(
 		p => p.key.toLowerCase() !== '~time' && p.key.toLowerCase() !== '~rest'
 	);
 
-	// If exercise is incomplete, don't add totals
+	// If exercise is incomplete, don't add totals (nothing finalized yet)
 	if (exercise.state !== 'completed') {
 		return {
 			...exercise,
@@ -56,7 +105,7 @@ function enrichExerciseWithSetTotals(exercise: Exercise): Exercise {
 	const totalRest = sumSetTotals(enrichedSets, '~rest');
 	const totalTime = sumSetTotals(enrichedSets, '~time');
 
-	// Add exercise-level totals
+	// Add exercise-level totals (if any sets recorded values)
 	if (totalRest) {
 		paramsWithoutTotals.push({
 			key: '~rest',
@@ -83,13 +132,30 @@ function enrichExerciseWithSetTotals(exercise: Exercise): Exercise {
 }
 
 /**
- * Enrich an individual set with its own totals (~time, ~rest).
- * ~time comes from the set's recordedDuration (actual elapsed time during set)
- * ~rest comes from the set's recordedRest (actual elapsed time during rest)
- * For incomplete sets: strip any existing totals
+ * Enrich an individual set with system totals (~time, ~rest).
+ *
+ * System Totals:
+ * - ~time: Comes from set.recordedTime (actual elapsed time during exercise)
+ * - ~rest: Comes from set.recordedRest (actual elapsed time during rest period)
+ *
+ * Process for INCOMPLETE sets:
+ * - Strip any existing ~time and ~rest params
+ * - Keep other set params
+ * - Don't add totals
+ *
+ * Process for COMPLETED sets:
+ * - Strip any existing ~time and ~rest params
+ * - Add ~time param if recordedTime exists
+ * - Add ~rest param if recordedRest exists
+ * - Mark both as non-editable (locked)
+ *
+ * Parameters:
+ * - set: Set potentially with stale totals
+ *
+ * Returns: Set with fresh system totals
  */
 function enrichSetWithTotals(set: ExerciseSet): ExerciseSet {
-	// Remove old set totals
+	// Remove old set totals (will recalculate if needed)
 	const paramsWithoutTotals = set.params.filter(
 		p => p.key.toLowerCase() !== '~time' && p.key.toLowerCase() !== '~rest'
 	);
@@ -128,8 +194,19 @@ function enrichSetWithTotals(set: ExerciseSet): ExerciseSet {
 }
 
 /**
- * Sum a specific total param (~time or ~rest) across all sets and return formatted string.
- * Returns empty string if no totals found.
+ * Sum a specific system total parameter (~time or ~rest) across all sets.
+ *
+ * Process:
+ * - Find all params matching the key (case-insensitive) across all sets
+ * - Parse duration string (e.g., "3m 45s") to seconds
+ * - Sum all seconds
+ * - Format back to human-readable duration string
+ *
+ * Parameters:
+ * - sets: Array of completed sets with totals
+ * - paramKey: System total key ("~time" or "~rest")
+ *
+ * Returns: Formatted duration string (e.g., "12m 33s") or empty string if no totals
  */
 function sumSetTotals(sets: ExerciseSet[], paramKey: string): string {
 	let totalSeconds = 0;
@@ -144,7 +221,20 @@ function sumSetTotals(sets: ExerciseSet[], paramKey: string): string {
 	return totalSeconds > 0 ? formatDurationHuman(totalSeconds) : '';
 }
 
-// Update a specific param value in a workout (exercise-level params)
+/**
+ * Update an exercise-level parameter value.
+ *
+ * Finds the param by key and updates its value, maintaining editable state.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise to modify
+ * - paramKey: Parameter key to update
+ * - newValue: New value (with or without brackets - caller's responsibility)
+ *
+ * Returns: New ParsedWorkout with updated param (or original if exercise not found)
+ */
 export function updateParamValue(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -163,7 +253,21 @@ export function updateParamValue(
 	return newParsed;
 }
 
-// Update a specific param value in a set
+/**
+ * Update a set-level parameter value.
+ *
+ * Finds the param in the specified set by key and updates its value.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise containing the set
+ * - setIndex: Index of set to modify
+ * - paramKey: Parameter key to update
+ * - newValue: New value (with or without brackets - caller's responsibility)
+ *
+ * Returns: New ParsedWorkout with updated param (or original if not found)
+ */
 export function updateSetParamValue(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -186,7 +290,20 @@ export function updateSetParamValue(
 	return newParsed;
 }
 
-// Update exercise state
+/**
+ * Update an exercise's completion state.
+ *
+ * Changes the state from pending → in-progress → completed (or skipped).
+ * State determines whether system totals (~time, ~rest) are calculated on serialize.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise to update
+ * - newState: New state ('pending' | 'in-progress' | 'completed' | 'skipped')
+ *
+ * Returns: New ParsedWorkout with updated exercise state
+ */
 export function updateExerciseState(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -200,7 +317,21 @@ export function updateExerciseState(
 	return newParsed;
 }
 
-// Update set state
+/**
+ * Update a set's completion state.
+ *
+ * Changes the state from pending → in-progress → completed (or skipped).
+ * When set reaches completed state, its recordedTime/recordedRest are included in totals.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise containing the set
+ * - setIndex: Index of set to update
+ * - newState: New state ('pending' | 'in-progress' | 'completed' | 'skipped')
+ *
+ * Returns: New ParsedWorkout with updated set state
+ */
 export function updateSetState(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -218,7 +349,18 @@ export function updateSetState(
 	return newParsed;
 }
 
-// Lock all editable fields (remove brackets)
+/**
+ * Lock all editable parameters across all exercises and sets.
+ *
+ * Removes [brackets] notation from all parameter values by setting editable=false.
+ * Used to create "static" workouts that can't be modified in the UI.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ *
+ * Returns: New ParsedWorkout with all params marked non-editable
+ */
 export function lockAllFields(parsed: ParsedWorkout): ParsedWorkout {
 	const newParsed = structuredClone(parsed);
 
@@ -236,7 +378,21 @@ export function lockAllFields(parsed: ParsedWorkout): ParsedWorkout {
 	return newParsed;
 }
 
-// Add a rest exercise after the specified index
+/**
+ * Insert a rest exercise after a specified exercise.
+ *
+ * Creates a new Rest exercise with countdown duration.
+ * Rest exercises are single-set exercises used for scheduled rest periods between exercises.
+ * Updates line indices for all subsequent exercises.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise after which to insert rest
+ * - restDuration: Rest duration in seconds
+ *
+ * Returns: New ParsedWorkout with rest exercise inserted
+ */
 export function addRest(parsed: ParsedWorkout, exerciseIndex: number, restDuration: number): ParsedWorkout {
 	const newParsed = structuredClone(parsed);
 	const currentExercise = newParsed.exercises[exerciseIndex];
@@ -268,7 +424,20 @@ export function addRest(parsed: ParsedWorkout, exerciseIndex: number, restDurati
 	return newParsed;
 }
 
-// Add a new set to an exercise
+/**
+ * Add a new set to an exercise.
+ *
+ * Clones the first set as a template and appends a new set to the exercise.
+ * New set starts with pending state and editable params.
+ * Used for creating multi-set exercises or duplicating set templates.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise to add set to
+ *
+ * Returns: New ParsedWorkout with new set appended (or original if exercise not found)
+ */
 export function addSet(parsed: ParsedWorkout, exerciseIndex: number): ParsedWorkout {
 	const newParsed = structuredClone(parsed);
 	const exercise = newParsed.exercises[exerciseIndex];
@@ -297,7 +466,21 @@ export function addSet(parsed: ParsedWorkout, exerciseIndex: number): ParsedWork
 	return newParsed;
 }
 
-// Set Duration param value (for recording time after exercise completion)
+/**
+ * Record the actual elapsed duration for an exercise as a Duration param.
+ *
+ * Called after an exercise is marked complete to capture the actual time taken.
+ * Updates exercise.recordedDuration for use in system totals (~time).
+ * Adds or updates Duration param with the recorded value (locked, non-editable).
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise to record duration for
+ * - durationStr: Duration string from timer (e.g., "3m 45s")
+ *
+ * Returns: New ParsedWorkout with recorded duration applied
+ */
 export function setRecordedDuration(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -326,7 +509,22 @@ export function setRecordedDuration(
 	return newParsed;
 }
 
-// Set Duration param value for a specific set
+/**
+ * Record the actual elapsed duration for a single set.
+ *
+ * Stores elapsed time in set.recordedTime (not as a param, but as metadata).
+ * Used when set is completed to capture actual exercise time.
+ * This time is later included in system totals (~time) when set is completed.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise containing the set
+ * - setIndex: Index of set to record duration for
+ * - durationStr: Duration string from timer (e.g., "45s")
+ *
+ * Returns: New ParsedWorkout with set recorded time applied
+ */
 export function setSetRecordedDuration(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -369,7 +567,22 @@ export function setSetRecordedRest(
 	return newParsed;
 }
 
-// Update Rest param value for a specific set
+/**
+ * Update the Rest parameter for a specific set.
+ *
+ * Finds or creates the Rest param and updates its value (editable).
+ * Used to modify the required rest duration between sets.
+ * Separate from setSetRecordedRest - this is the target duration stored as a param.
+ * Creates a deep clone to avoid mutations.
+ *
+ * Parameters:
+ * - parsed: Complete workout state
+ * - exerciseIndex: Index of exercise containing the set
+ * - setIndex: Index of set to update
+ * - restStr: Rest duration string (e.g., "60s", "1m 30s")
+ *
+ * Returns: New ParsedWorkout with rest param updated (or original if not found)
+ */
 export function updateSetRestDuration(
 	parsed: ParsedWorkout,
 	exerciseIndex: number,
@@ -401,7 +614,23 @@ export function updateSetRestDuration(
 	return newParsed;
 }
 
-// Create a sample workout with comprehensive exercise examples
+/**
+ * Create a sample workout for demonstration and testing.
+ *
+ * Includes:
+ * - Metadata with title and planned state
+ * - Multiple exercise types (timed and rep-based)
+ * - Rest exercises between sets
+ * - Multi-set exercises with varying parameters
+ * - Mix of editable and locked parameter formats
+ *
+ * Used for:
+ * - New user onboarding (sample template)
+ * - UI debugging and screenshots
+ * - Test fixtures for workout rendering
+ *
+ * Returns: Complete ParsedWorkout ready for rendering or serialization
+ */
 export function createSampleWorkout(): ParsedWorkout {
 	const metadata = {
 		title: 'Sample Workout',
@@ -525,7 +754,27 @@ export function createSampleWorkout(): ParsedWorkout {
 	};
 }
 
-// Serialize workout as a clean template (for copying)
+/**
+ * Serialize a workout as a clean template for copying/reuse.
+ *
+ * Template Format:
+ * - Resets metadata to planned state (no dates or elapsed duration)
+ * - Keeps exercise names and structure
+ * - Clears system totals (~time, ~rest) - templates start fresh
+ * - Preserves target durations for timed exercises (e.g., [3m])
+ * - Restores all params to editable format [brackets]
+ * - Ready to paste into new workout entries
+ *
+ * Used for:
+ * - Copy-to-clipboard functionality ("Use as template" button)
+ * - Generating reusable workout definitions
+ * - Archiving workouts for future reuse
+ *
+ * Parameters:
+ * - parsed: Completed or in-progress workout to convert to template
+ *
+ * Returns: Markdown string suitable for copying to new workout entry
+ */
 export function serializeWorkoutAsTemplate(parsed: ParsedWorkout): string {
 	const lines: string[] = [];
 
