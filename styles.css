@@ -141,7 +141,7 @@
 	color: var(--text-normal);
 	white-space: nowrap;
 	min-width: calc((var(--max-name-chars, 10)*0.80) * 1ch);
-	text-aligh: center;
+	text-align: center;
 }
 
 /* Set Timer - positioned on the right */
