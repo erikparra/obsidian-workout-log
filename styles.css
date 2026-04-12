@@ -112,7 +112,7 @@
 	color: var(--text-normal);
 	white-space: nowrap;
 	/* Use ch unit for character-based width */
-	min-width: calc(var(--max-name-chars, 10) * 1ch);
+	min-width: calc((var(--max-name-chars, 10) * 0.8) * 1ch);
 }
 
 /* Simple exercise (no params) - center */
@@ -134,6 +134,14 @@
 	text-align: center;
 	color: var(--text-muted);
 	flex-shrink: 0;
+}
+
+.workout-set-label {
+	font-weight: 250;
+	color: var(--text-normal);
+	white-space: nowrap;
+	min-width: calc((var(--max-name-chars, 10)*0.80) * 1ch);
+	text-aligh: center;
 }
 
 /* Set Timer - positioned on the right */
