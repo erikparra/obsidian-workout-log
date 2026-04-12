@@ -605,13 +605,8 @@ function renderSetWithTimerElement(
 		setDurationEl.createSpan({ cls: 'workout-param-value', text: recordedDuration });
 	}
 
-	// Show Rest duration if set has one
+	// Get rest duration for timer logic 
 	const restDurationStr = getSetRestDuration(set);
-	if (restDurationStr) {
-		const restEl = setRow.createSpan({ cls: 'workout-set-rest-info' });
-		restEl.createSpan({ cls: 'workout-param-prefix', text: '⏸' });
-		restEl.createSpan({ cls: 'workout-param-value', text: restDurationStr });
-	}
 
 	// Timer display for active set (right side)
 	let timerEl: HTMLElement | null = null;
