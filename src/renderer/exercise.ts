@@ -160,6 +160,20 @@ function getSetRestDuration(set: ExerciseSet): string | null {
 }
 
 /**
+ * Extract duration from a set's duration parameter.
+ * Duration is the target or recorded time for completing the set.
+ *
+ * Parameters:
+ * - set: ExerciseSet to extract from
+ *
+ * Returns: Duration string (e.g., "60s") or null if not set
+ */
+function getSetDuration(set: ExerciseSet): string | null {
+	const durationParam = set.params.find(p => p.key.toLowerCase() === 'duration');
+	return durationParam ? durationParam.value : null;
+}
+
+/**
  * Render a display-only total parameter (e.g., total weight, total reps).
  * Display-only version with = prefix and no editing capability.
  *
@@ -615,20 +629,27 @@ function renderSetWithTimerElement(
 		setInputs.set(setIndex, setParamInputs);
 	}
 
+
+
+
+
+	// Timer display (right side of mainRow)
+	// Shown on mainRow if no sets or single set, otherwise on active set
+	// Priority order: completed > active > static target > pending placeholder
+	let timerEl: HTMLElement | null = null;
+	timerEl = setRow.createSpan({ cls: 'workout-set-timer' });
+
 	// Show recorded duration for completed sets
 	const recordedDuration = getSetRecordedDuration(set);
-	if (recordedDuration && workoutState === 'completed') {
-		const setDurationEl = setRow.createSpan({ cls: 'workout-set-duration' });
-		setDurationEl.createSpan({ cls: 'workout-param-value', text: recordedDuration });
-	}
 
-	// Get rest duration for timer logic 
-	const restDurationStr = getSetRestDuration(set);
-
-	// Timer display for active set (right side)
-	let timerEl: HTMLElement | null = null;
-	if (isActive && timerState) {
-		timerEl = setRow.createSpan({ cls: 'workout-set-timer' });
+	if ( workoutState === 'completed' && recordedDuration) {
+		timerEl.textContent = recordedDuration;
+		timerEl.createSpan({ cls: 'timer-indicator recorded', text: ' ✓' });
+	} 
+	// Set currently active: show live timer (updates in real-time)
+	else if (isActive && timerState) {
+		// Get rest duration for timer logic 
+		const restDurationStr = getSetRestDuration(set);
 		
 		// In rest mode: show rest timer with phase-based color coding
 		if (timerState.isRestActive && timerState.restRemaining !== undefined) {
@@ -669,6 +690,27 @@ function renderSetWithTimerElement(
 		} else {
 			// Not in rest: show exercise timer (count-up or countdown)
 			updateExerciseTimer(timerEl, timerState, undefined);
+		}
+	}
+	else if (set.state === 'pending') {
+		// Pending set with defined rest: show static rest duration as placeholder
+		const restDurationStr = getSetRestDuration(set);
+		if (restDurationStr) {
+			timerEl.textContent = restDurationStr;
+			timerEl.createSpan({ cls: 'timer-indicator', text: ' ⏸' });
+		} else {
+			// No rest defined: show placeholder
+			timerEl.textContent = '--';
+		}
+	}
+	else {
+		const setDurationStr = getSetDuration(set);
+		if (setDurationStr) {
+			timerEl.textContent = setDurationStr;
+			timerEl.createSpan({ cls: 'timer-indicator', text: ' ⏸' });
+		} else {
+			// No duration defined: show placeholder
+			timerEl.textContent = '--';
 		}
 	}
 	
