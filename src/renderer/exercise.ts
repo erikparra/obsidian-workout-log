@@ -207,7 +207,12 @@ function renderParamElement(
 		paramEl.createSpan({ cls: 'workout-param-prefix', text: PARAM_PREFIX_ICONS[keyLower] });
 	}
 
-	if (param.editable && workoutState !== 'completed') {
+	// Duration and rest are never editable - always display as read-only
+	// Brackets in markdown determine timer behavior (countdown vs count-up), not editability
+	const isNeverEditable = keyLower === 'duration' || keyLower === 'rest';
+	const isEditable = !isNeverEditable && param.editable && workoutState !== 'completed';
+
+	if (isEditable) {
 		const input = paramEl.createEl('input', {
 			cls: 'workout-param-input',
 			type: 'text',
