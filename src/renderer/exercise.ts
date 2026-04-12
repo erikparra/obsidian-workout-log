@@ -447,20 +447,32 @@ export function renderExercise(
 
 	// Timer display (right side of mainRow)
 	// Shown on mainRow if no sets or single set, otherwise on active set
+	// Priority order: completed > active > static target > pending placeholder
 	let timerEl: HTMLElement | null = null;
 	
 	if (exercise.sets.length === 0 || !hasMultipleSets) {
 		timerEl = mainRow.createSpan({ cls: 'workout-exercise-timer' });
 
+		// 1. Exercise completed: show recorded duration with checkmark
+		// This is the final state after workout finishes
 		if (exercise.state === 'completed' && exercise.recordedDuration) {
 			timerEl.textContent = exercise.recordedDuration;
 			timerEl.createSpan({ cls: 'timer-indicator recorded', text: ' ✓' });
-		} else if (isActive && timerState) {
+		} 
+		// 2. Exercise currently active: show live timer (updates in real-time)
+		// During workout, timer counts up/down and keeps updating via updateExerciseTimer()
+		else if (isActive && timerState) {
 			updateExerciseTimer(timerEl, timerState, exercise.targetDuration);
-		} else if (exercise.targetDuration) {
+		} 
+		// 3. Static target display (when not active)
+		// Only show countdown indicator if single excersie.
+		else if (!hasMultipleSets && exercise.targetDuration) {
 			timerEl.textContent = formatDuration(exercise.targetDuration);
 			timerEl.createSpan({ cls: 'timer-indicator count-down', text: ' ▼' });
-		} else if (exercise.state === 'pending') {
+		} 
+		// 4. Pending exercise with no target: show placeholder
+		// Indicates exercise not yet started and has no defined duration
+		else if (!hasMultipleSets && exercise.state === 'pending') {
 			timerEl.textContent = '--';
 		}
 	}
