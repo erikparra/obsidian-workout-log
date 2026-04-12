@@ -35,6 +35,12 @@ const STATE_ICONS: Record<ExerciseState, string> = {
 	'skipped': '—'
 };
 
+const PARAM_PREFIX_ICONS: Record<string, string> = {
+	'duration': '⏱️',
+	'reps': '×',
+	'rest': '⏸️'
+};
+
 /**
  * Generate a consistent color hue from exercise name using djb2 hash.
  * Ensures each exercise gets a unique, visually distinct color.
@@ -87,7 +93,7 @@ export interface ExerciseElements {
 function hasDisplayableSetParams(set: ExerciseSet): boolean {
 	return set.params.some(p => {
 		const key = p.key.toLowerCase();
-		return key === 'duration' || key === 'weight' || key === 'reps';
+		return key === 'duration' || key === 'weight' || key === 'reps' || key === 'rest';
 	});
 }
 
@@ -102,7 +108,7 @@ function hasDisplayableSetParams(set: ExerciseSet): boolean {
  * Returns: Array of params in order [duration, weight, reps]
  */
 function getDisplayableSetParams(set: ExerciseSet): ExerciseParam[] {
-	const paramOrder = ['duration', 'weight', 'reps'];
+	const paramOrder = ['duration', 'weight', 'reps', 'rest'];
 	const paramsMap = new Map<string, ExerciseParam>();
 	
 	// Build map of params by key
@@ -151,6 +157,83 @@ function getSetRecordedDuration(set: ExerciseSet): string | null {
 function getSetRestDuration(set: ExerciseSet): string | null {
 	const restParam = set.params.find(p => p.key.toLowerCase() === 'rest');
 	return restParam ? restParam.value : null;
+}
+
+/**
+ * Render a display-only total parameter (e.g., total weight, total reps).
+ * Display-only version with = prefix and no editing capability.
+ *
+ * Parameters:
+ * - container: Parent element to render into
+ * - value: The value to display
+ * - unit: Optional unit string (e.g., " lbs")
+ */
+function renderTotalParam(
+	container: HTMLElement,
+	value: number | string,
+	unit?: string
+): void {
+	const paramEl = container.createSpan({ cls: 'workout-param' });
+	paramEl.createSpan({ cls: 'workout-param-prefix', text: '=' });
+	paramEl.createSpan({ cls: 'workout-param-value', text: String(value) });
+	if (unit) {
+		paramEl.createSpan({ cls: 'workout-param-unit', text: unit });
+	}
+}
+
+/**
+ * Render a parameter element with optional editability.
+ * Handles prefix icons (based on param key), value display/input, and unit rendering.
+ *
+ * Parameters:
+ * - container: Parent element to render into
+ * - param: Parameter to render
+ * - workoutState: Current workout state (determines if param is editable)
+ * - onInputChange: Callback when input value changes
+ *
+ * Returns: HTMLInputElement if editable, undefined otherwise
+ */
+function renderParamElement(
+	container: HTMLElement,
+	param: ExerciseParam,
+	workoutState: 'planned' | 'started' | 'completed',
+	onInputChange: (value: string) => void
+): HTMLInputElement | undefined {
+	const paramEl = container.createSpan({ cls: 'workout-param' });
+
+	// Render prefix icon if icon exists for this param key
+	const keyLower = param.key.toLowerCase();
+	if (PARAM_PREFIX_ICONS[keyLower]) {
+		paramEl.createSpan({ cls: 'workout-param-prefix', text: PARAM_PREFIX_ICONS[keyLower] });
+	}
+
+	if (param.editable && workoutState !== 'completed') {
+		const input = paramEl.createEl('input', {
+			cls: 'workout-param-input',
+			type: 'text',
+			value: param.value
+		});
+		input.addEventListener('input', () => onInputChange(input.value));
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') input.blur();
+		});
+		
+		// Unit after value
+		if (param.unit) {
+			paramEl.createSpan({ cls: 'workout-param-unit', text: ` ${param.unit}` });
+		}
+		
+		return input;
+	} else {
+		paramEl.createSpan({ cls: 'workout-param-value', text: param.value });
+		
+		// Unit after value
+		if (param.unit) {
+			paramEl.createSpan({ cls: 'workout-param-unit', text: ` ${param.unit}` });
+		}
+		
+		return undefined;
+	}
 }
 
 /**
@@ -210,7 +293,7 @@ function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): {
 		// If exercise is completed, sum recorded durations from each set
 		if (isCompleted) {
 			for (const param of set.params) {
-				if (param.key.toLowerCase() === 'duration' && !param.editable) {
+				if (param.key.toLowerCase() === '~time' && !param.editable) {
 					// Non-editable duration = recorded time (captured during set)
 					const seconds = parseDurationToSeconds(param.value);
 					totalRecordedTime += seconds;
@@ -290,123 +373,75 @@ export function renderExercise(
 	const isCompleted = exercise.state === 'completed';
 	const totals = computeExerciseTotals(exercise, isCompleted);
 	
-	// Display totals on multi-set exercise main row
-	if (hasMultipleSets && (totals.reps !== null || totals.weight !== null || (isCompleted && totals.totalRecordedTime > 0) || totals.totalRest > 0)) {
+	// Display totals on multi-set exercise main row (only when completed)
+	if (hasMultipleSets && isCompleted) {
 		const totalsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
 
 		// Show weight
 		if (totals.weight !== null) {
-			const weightEl = totalsEl.createSpan({ cls: 'workout-param' });
-			weightEl.createSpan({ cls: 'workout-param-value', text: String(totals.weight) });
-			weightEl.createSpan({ cls: 'workout-param-unit', text: ' lbs' });
+			renderTotalParam(totalsEl, totals.weight, ' lbs');
 		}
 
 		// Show total reps
 		if (totals.reps !== null) {
-			const repsEl = totalsEl.createSpan({ cls: 'workout-param' });
-			repsEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
-			repsEl.createSpan({ cls: 'workout-param-value', text: String(totals.reps) });
-		}
-
-		// Show total recorded time when completed
-		// TODO: change this to show total duration if provided.
-		if (isCompleted && totals.totalRecordedTime > 0) {
-			const timeEl = totalsEl.createSpan({ cls: 'workout-param' });
-			timeEl.createSpan({ cls: 'workout-param-value', text: formatDurationHuman(totals.totalRecordedTime) });
+			renderTotalParam(totalsEl, totals.reps);
 		}
 
 		// Show total rest time
 		if (totals.totalRest > 0) {
-			const restEl = totalsEl.createSpan({ cls: 'workout-param' });
-			restEl.createSpan({ cls: 'workout-param-prefix', text: '⏸' });
-			restEl.createSpan({ cls: 'workout-param-value', text: formatDurationHuman(totals.totalRest) });
+			renderTotalParam(totalsEl, formatDurationHuman(totals.totalRest));
+		}
+
+		// Show total recorded time when completed
+		if (totals.totalRecordedTime > 0) {
+			renderTotalParam(totalsEl, formatDurationHuman(totals.totalRecordedTime));
 		}
 	}
 
-	// Parameters inline (chip/pill style) - between name and timer
-	// For multi-set exercises, only totals shown (not exercise params)
-	if (exercise.params.length > 0 && !hasMultipleSets) {
-		const paramsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
-
-		for (const param of exercise.params) {
-			// Skip Duration param (shown in timer)
-			if (param.key.toLowerCase() === 'duration') continue;
-
-			const paramEl = paramsEl.createSpan({ cls: 'workout-param' });
-
-			// × prefix for params without units (plain numbers)
-			if (!param.unit) {
-				paramEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
-			}
-
-			if (param.editable && workoutState !== 'completed') {
-				const input = paramEl.createEl('input', {
-					cls: 'workout-param-input',
-					type: 'text',
-					value: param.value
-				});
-				// Track changes immediately (updates in-memory state)
-				input.addEventListener('input', () => {
-					callbacks.onParamChange(index, param.key, input.value);
-				});
-				input.addEventListener('keydown', (e) => {
-					if (e.key === 'Enter') {
-						input.blur();
-					}
-				});
-				inputs.set(param.key, input);
-			} else {
-				paramEl.createSpan({ cls: 'workout-param-value', text: param.value });
-			}
-
-			// Unit after value
-			if (param.unit) {
-				paramEl.createSpan({ cls: 'workout-param-unit', text: ` ${param.unit}` });
-			}
-		}
-	}
-
-	// For single-set exercises, render set params inline on mainRow
+	// For single-set exercises, render set params inline on mainRow (if present)
+	// Otherwise render exercise-level params
 	if (!hasMultipleSets && exercise.sets.length > 0) {
 		const singleSet = exercise.sets[0];
 		if (singleSet && hasDisplayableSetParams(singleSet)) {
+			// Set has displayable params: render those instead of exercise params
 			const paramsEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
 			const setParamInputs = new Map<string, HTMLInputElement>();
 			const displayableParams = getDisplayableSetParams(singleSet);
 
 			for (const param of displayableParams) {
-				const paramEl = paramsEl.createSpan({ cls: 'workout-param' });
-
-				// × prefix for params without units
-				if (!param.unit) {
-					paramEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
-				}
-
-				if (param.editable && workoutState !== 'completed') {
-					const input = paramEl.createEl('input', {
-						cls: 'workout-param-input',
-						type: 'text',
-						value: param.value
-					});
-					input.addEventListener('input', () => {
-						callbacks.onSetParamChange(index, 0, param.key, input.value);
-					});
-					input.addEventListener('keydown', (e) => {
-						if (e.key === 'Enter') {
-							input.blur();
-						}
-					});
-					setParamInputs.set(param.key, input);
-				} else {
-					paramEl.createSpan({ cls: 'workout-param-value', text: param.value });
-				}
-
-				// Unit after value
-				if (param.unit) {
-					paramEl.createSpan({ cls: 'workout-param-unit', text: ` ${param.unit}` });
-				}
+				const input = renderParamElement(
+					paramsEl,
+					param,
+					workoutState,
+					(value) => callbacks.onSetParamChange(index, 0, param.key, value)
+				);
+				if (input) setParamInputs.set(param.key, input);
 			}
 			setInputs.set(0, setParamInputs);
+		} else if (exercise.params.length > 0) {
+			// Set has no displayable params: render exercise-level params instead
+			const containerEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
+			for (const param of exercise.params) {
+				const input = renderParamElement(
+					containerEl,
+					param,
+					workoutState,
+					(value) => callbacks.onParamChange(index, param.key, value)
+				);
+				if (input) inputs.set(param.key, input);
+			}
+		}
+	} else if (!hasMultipleSets && exercise.params.length > 0) {
+		// No sets: render exercise-level params
+		const containerEl = mainRow.createSpan({ cls: 'workout-exercise-params' });
+		for (const param of exercise.params) {
+			const input = renderParamElement(
+				containerEl,
+				param,
+				workoutState,
+				(value) => callbacks.onParamChange(index, param.key, value)
+			);
+			if (input) inputs.set(param.key, input);
 		}
 	}
 
@@ -547,41 +582,17 @@ function renderSetWithTimerElement(
 	// Set parameters as inline chips
 	if (hasDisplayableSetParams(set)) {
 		const paramsEl = setRow.createSpan({ cls: 'workout-set-params' });
-
 		const setParamInputs = new Map<string, HTMLInputElement>();
 		const displayableParams = getDisplayableSetParams(set);
 
 		for (const param of displayableParams) {
-			const paramEl = paramsEl.createSpan({ cls: 'workout-param' });
-
-			// × prefix for params without units
-			if (!param.unit) {
-				paramEl.createSpan({ cls: 'workout-param-prefix', text: '×' });
-			}
-
-			if (param.editable && workoutState !== 'completed') {
-				const input = paramEl.createEl('input', {
-					cls: 'workout-param-input',
-					type: 'text',
-					value: param.value
-				});
-				input.addEventListener('input', () => {
-					callbacks.onSetParamChange(exerciseIndex, setIndex, param.key, input.value);
-				});
-				input.addEventListener('keydown', (e) => {
-					if (e.key === 'Enter') {
-						input.blur();
-					}
-				});
-				setParamInputs.set(param.key, input);
-			} else {
-				paramEl.createSpan({ cls: 'workout-param-value', text: param.value });
-			}
-
-			// Unit after value
-			if (param.unit) {
-				paramEl.createSpan({ cls: 'workout-param-unit', text: ` ${param.unit}` });
-			}
+			const input = renderParamElement(
+				paramsEl,
+				param,
+				workoutState,
+				(value) => callbacks.onSetParamChange(exerciseIndex, setIndex, param.key, value)
+			);
+			if (input) setParamInputs.set(param.key, input);
 		}
 
 		setInputs.set(setIndex, setParamInputs);
