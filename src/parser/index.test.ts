@@ -178,7 +178,8 @@ describe('parseWorkout', () => {
 		const source = '---\n- [x] Cardio | Duration: 65s';
 		const result = parseWorkout(source);
 		
-		expect(result.exercises[0].recordedDuration).toBe('65s');
+		// Duration params (locked or editable) are parsed as targetDuration in seconds
+		expect(result.exercises[0].targetDuration).toBe(65);
 	});
 
 	it('should handle tabs and spaces for indentation', () => {

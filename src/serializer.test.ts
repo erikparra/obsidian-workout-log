@@ -285,9 +285,9 @@ describe('totals persistence (~time and ~rest)', () => {
 		const source = '---\n- [x] Exercise | ~rest: 5m | ~time: 38m\n  - [x] | Rest: 60s | Duration: 2:30';
 		const parsed = parseWorkout(source);
 		
-		expect(parsed.exercises[0].params).toHaveLength(2);
-		expect(parsed.exercises[0].params.find(p => p.key === '~rest')).toBeDefined();
-		expect(parsed.exercises[0].params.find(p => p.key === '~time')).toBeDefined();
+		// ~time and ~rest are extracted into separate fields, not stored in params array
+		expect(parsed.exercises[0].recordedRest).toBe('5m');
+		expect(parsed.exercises[0].recordedTime).toBe('38m');
 	});
 
 	it('should strip ~time and ~rest from incomplete exercises on serialize', () => {
@@ -417,9 +417,9 @@ describe('totals persistence (~time and ~rest)', () => {
 		const serialized = serializeWorkout(parsed);
 		const reparsed = parseWorkout(serialized);
 		
-		// ~rest and ~time should be parsed as params
-		expect(reparsed.exercises[0].params.find(p => p.key === '~rest')).toBeDefined();
-		expect(reparsed.exercises[0].params.find(p => p.key === '~time')).toBeDefined();
+		// ~rest and ~time are extracted into separate fields after parsing
+		expect(reparsed.exercises[0].recordedRest).toBeDefined();
+		expect(reparsed.exercises[0].recordedTime).toBeDefined();
 	});
 
 	it('should handle exercises with multiple sets correctly', () => {

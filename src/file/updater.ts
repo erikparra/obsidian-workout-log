@@ -306,7 +306,7 @@ export class FileUpdater {
 				const exercises = parsed.exercises.map(exercise => ({
 					name: exercise.name,
 					state: exercise.state,
-					recordedDuration: exercise.recordedDuration,
+					recordedDuration: exercise.recordedTime,
 					sets: exercise.sets.map(set => {
 						// Extract recorded duration from params if it exists
 						const durationParam = set.params.find(p => p.key.toLowerCase() === 'duration' && !p.editable);

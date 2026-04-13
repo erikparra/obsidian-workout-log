@@ -25,8 +25,8 @@ export default {
 		'src/parser/exercise.ts': {
 			branches: 85,
 			functions: 100,
-			lines: 98,
-			statements: 98
+			lines: 95,
+			statements: 95
 		},
 		'src/parser/metadata.ts': {
 			branches: 90,

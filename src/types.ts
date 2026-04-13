@@ -26,6 +26,7 @@ export interface ExerciseSet {
 	state: ExerciseState;
 	params: ExerciseParam[];
 	lineIndex: number;           // Line index relative to exercise section start
+	targetDuration?: number;  // Target duration in seconds (for countdown timers)
 	recordedTime?: string;   // Actual elapsed time during the set (from timer)
 	recordedRest?: string;       // Actual elapsed time during rest period after this set
 }
@@ -47,7 +48,8 @@ export interface Exercise {
 	params: ExerciseParam[];      // Exercise-level params (e.g., Duration)
 	sets: ExerciseSet[];          // Nested sets
 	targetDuration?: number;      // Target duration in seconds (for countdown)
-	recordedDuration?: string;    // Recorded duration after completion
+	recordedTime?: string;    // Recorded duration after completion
+	recordedRest?: string;       // Recorded rest duration after completion
 	lineIndex: number;            // Line index relative to exercise section start
 }
 

@@ -76,23 +76,24 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 
 	const params: ExerciseParam[] = [];
 	let targetDuration: number | undefined;
-	let recordedDuration: string | undefined;
+	let recordedTime: string | undefined;
+	let recordedRest: string | undefined;
 
 	for (const paramStr of paramStrings) {
 		const param = parseParam(paramStr);
 		if (param) {
-			params.push(param);
-
-			// Extract duration information into dedicated fields
-			// Separate handling for countdown targets vs recorded times
 			if (param.key.toLowerCase() === 'duration') {
-				if (param.editable) {
-					// Editable duration = countdown target
-					targetDuration = parseDurationToSeconds(param.value);
-				} else {
-					// Locked duration = recorded time
-					recordedDuration = param.value + (param.unit ? ` ${param.unit}` : '');
-				}
+				targetDuration = parseDurationToSeconds(param.value);
+				params.push(param);
+			} 
+			else if (param.key.toLowerCase() === '~time') {
+				recordedTime = param.value;
+			}
+			else if (param.key.toLowerCase() === '~rest') {
+				recordedRest = param.value;
+			}
+			else {
+				params.push(param);
 			}
 		}
 	}
@@ -103,7 +104,8 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 		params,
 		sets: [],        // Set by parent parseWorkout, not by this function
 		targetDuration,  // Seconds: used for countdown timers
-		recordedDuration, // String: actual time recorded after completion
+		recordedTime, // Seconds: actual time recorded after completion
+		recordedRest, // Seconds: actual rest time recorded after completion
 		lineIndex
 	};
 }
@@ -114,7 +116,7 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
  * Format: "  - [STATE] | Key: [value] unit | Key: value"
  *
  * Special handling:
- * - ~time and ~rest are extracted into recordedDuration/recordedRest fields
+ * - ~time and ~rest are extracted into recordedTime/recordedRest fields
  *   (these are system-computed values, not user params)
  * - All other params are stored in set.params
  */
@@ -130,21 +132,24 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 	const paramStrings = parts;
 
 	const params: ExerciseParam[] = [];
+	let targetDuration: number | undefined;
 	let recordedTime: string | undefined;
 	let recordedRest: string | undefined;
 
 	for (const paramStr of paramStrings) {
 		const param = parseParam(paramStr);
 		if (param) {
-			// System-managed totals: store separately, don't include in params list
-			// These are computed during serialization and should not be editable
-			if (param.key.toLowerCase() === '~time') {
+			if (param.key.toLowerCase() === 'duration') {
+				targetDuration = parseDurationToSeconds(param.value);
+				params.push(param);
+			} 
+			else if (param.key.toLowerCase() === '~time') {
 				recordedTime = param.value;
-				// Don't add to params - these are computed values
-			} else if (param.key.toLowerCase() === '~rest') {
+			} 
+			else if (param.key.toLowerCase() === '~rest') {
 				recordedRest = param.value;
-				// Don't add to params - these are computed values
-			} else {
+			} 
+			else {
 				params.push(param);
 			}
 		}
@@ -154,8 +159,9 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 		state,
 		params,
 		lineIndex,
-		recordedTime, // Actual elapsed time during set
-		recordedRest      // Actual elapsed rest period after set
+		targetDuration,  // Seconds: used for countdown timers
+		recordedTime,    // Actual elapsed time during set
+		recordedRest     // Actual elapsed rest period after set
 	};
 }
 

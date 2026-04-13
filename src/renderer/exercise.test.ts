@@ -635,7 +635,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 					}
 				],
 				lineIndex: 0,
-				recordedDuration: '5m 30s'
+				recordedTime: '5m 30s'
 			};
 			const result = renderExercise(
 				container,
@@ -847,7 +847,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 					{ state: 'completed', params: [], recordedTime: '2m 45s' }
 				],
 				lineIndex: 0,
-				recordedDuration: '5m 45s'
+				recordedTime: '5m 45s'
 			};
 			const result = renderExercise(
 				container,
@@ -977,7 +977,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 				params: [],
 				sets: [],
 				lineIndex: 0,
-				recordedDuration: '10m 25s'
+				recordedTime: '10m 25s'
 			};
 			const result = renderExercise(
 				container,
@@ -1388,7 +1388,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 						restDuration: '120s'
 					}
 				],
-				recordedDuration: '2m 30s',
+				recordedTime: '2m 30s',
 				lineIndex: 0
 			};
 			const result = renderExercise(
@@ -1553,7 +1553,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 			const completedExercise: Exercise = {
 				...baseMockExercise,
 				state: 'completed',
-				recordedDuration: '5m 30s',
+				recordedTime: '5m 30s',
 				sets: []
 			};
 			const result = renderExercise(
@@ -2189,7 +2189,7 @@ describe('updateExerciseTimer', () => {
 						recordedTime: '5m 30s'
 					}
 				],
-				recordedDuration: '5m 30s',
+				recordedTime: '5m 30s',
 				lineIndex: 0
 			};
 			const result = renderExercise(
@@ -2226,7 +2226,7 @@ describe('updateExerciseTimer', () => {
 						recordedTime: '3m'
 					}
 				],
-				recordedDuration: '6m 2m',
+				recordedTime: '6m 2m',
 				lineIndex: 0
 			};
 			const result = renderExercise(
@@ -2480,7 +2480,7 @@ describe('updateExerciseTimer', () => {
 					}
 				],
 				lineIndex: 0,
-				recordedDuration: '5m 30s'
+				recordedTime: '5m 30s'
 			};
 			renderExercise(
 				container,
@@ -2520,7 +2520,7 @@ describe('updateExerciseTimer', () => {
 					}
 				],
 				lineIndex: 0,
-				recordedDuration: '6m 2m'
+				recordedTime: '6m 2m'
 			};
 			renderExercise(
 				container,
@@ -3606,7 +3606,7 @@ describe('updateExerciseTimer', () => {
 					}
 				],
 				lineIndex: 0,
-				recordedDuration: '5m 50m'
+				recordedTime: '5m 50m'
 			};
 			renderExercise(
 				container,

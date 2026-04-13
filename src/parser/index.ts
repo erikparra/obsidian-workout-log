@@ -80,7 +80,10 @@ export function parseWorkout(source: string): ParsedWorkout {
 				currentExercise.sets.push({
 					state: currentExercise.state,
 					params: currentExercise.params,
-					lineIndex: currentExercise.lineIndex
+					lineIndex: currentExercise.lineIndex,
+					targetDuration: currentExercise.targetDuration,
+					recordedTime: currentExercise.recordedTime,
+					recordedRest: currentExercise.recordedRest
 				});
 				currentExercise.params = [];
 			}
@@ -102,7 +105,10 @@ export function parseWorkout(source: string): ParsedWorkout {
 		currentExercise.sets.push({
 			state: currentExercise.state,
 			params: currentExercise.params,
-			lineIndex: currentExercise.lineIndex
+			lineIndex: currentExercise.lineIndex,
+			targetDuration: currentExercise.targetDuration,
+			recordedTime: currentExercise.recordedTime,
+			recordedRest: currentExercise.recordedRest
 		});
 		currentExercise.params = [];
 	}

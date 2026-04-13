@@ -434,7 +434,7 @@ describe('FileUpdater', () => {
 					{
 						name: 'Bench Press',
 						state: 'completed',
-						recordedDuration: '10m',
+						recordedTime: '10m',
 						params: [],
 						sets: [
 							{
@@ -689,7 +689,7 @@ describe('FileUpdater', () => {
 					{
 						name: 'Exercise',
 						state: 'completed',
-						recordedDuration: '10m',
+						recordedTime: '10m',
 						params: [],
 						sets: [
 							{

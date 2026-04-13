@@ -80,15 +80,16 @@ describe('parseExercise', () => {
 		const line = '- [x] Cardio | Duration: 125 s';
 		const exercise = parseExercise(line, 0);
 
-		// Duration values are combined with their units in parseParam
-		expect(exercise!.recordedDuration).toBe('125s');
+		// Duration values are parsed as targetDuration in seconds
+		expect(exercise!.targetDuration).toBe(125);
 	});
 
 	it('should handle Duration with compound format like 3m2s', () => {
 		const line = '- [x] Workout | Duration: 3m2s';
 		const exercise = parseExercise(line, 0);
 
-		expect(exercise!.recordedDuration).toBe('3m2s');
+		// Duration is converted to seconds: 3m2s = 182 seconds
+		expect(exercise!.targetDuration).toBe(182);
 	});
 
 	it('should parse exercise with empty name', () => {
@@ -386,8 +387,10 @@ describe('Integration tests', () => {
 		expect(exercise).not.toBeNull();
 		expect(exercise!.state).toBe('inProgress');
 		expect(exercise!.name).toBe('Deadlift');
+		// Weight, Reps, and Duration are all in params
 		expect(exercise!.params).toHaveLength(3);
-		expect(exercise!.recordedDuration).toBe('3m2s');
+		// Duration is also extracted into targetDuration (in seconds)
+		expect(exercise!.targetDuration).toBe(182);  // 3m2s = 182 seconds
 	});
 
 	it('should roundtrip duration formats through parsing', () => {
@@ -450,16 +453,12 @@ describe('Integration tests', () => {
 
 	it('should allow system-managed totals parameters (~time and ~rest)', () => {
 		// ~time and ~rest are system-managed (locked) parameters
+		// These are extracted into separate fields, not stored in params array
 		const line = '- [x] Exercise | ~rest: 5m | ~time: 30m';
 		const exercise = parseExercise(line, 0);
 
-		expect(exercise!.params).toHaveLength(2);
-		expect(exercise!.params[0].key).toBe('~rest');
-		expect(exercise!.params[0].value).toBe('5m');
-		expect(exercise!.params[0].editable).toBe(false);
-		expect(exercise!.params[1].key).toBe('~time');
-		expect(exercise!.params[1].value).toBe('30m');
-		expect(exercise!.params[1].editable).toBe(false);
+		expect(exercise!.recordedRest).toBe('5m');
+		expect(exercise!.recordedTime).toBe('30m');
 	});
 });
 

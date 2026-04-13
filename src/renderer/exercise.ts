@@ -41,6 +41,12 @@ const PARAM_PREFIX_ICONS: Record<string, string> = {
 	'rest': '⏸️'
 };
 
+const TIMER_ICONS: Record<string, string> = {
+	'countdown': '▼',
+	'countup': '▲',
+	'recorded': '✓'
+};
+
 /**
  * Generate a consistent color hue from exercise name using djb2 hash.
  * Ensures each exercise gets a unique, visually distinct color.
@@ -141,7 +147,7 @@ function getDisplayableSetParams(set: ExerciseSet): ExerciseParam[] {
  * Returns: Recorded duration string (e.g., "1m 30s") or null if not recorded
  */
 function getSetRecordedDuration(set: ExerciseSet): string | null {
-	const durationParam = set.params.find(p => p.key.toLowerCase() === 'duration' && !p.editable);
+	const durationParam = set.params.find(p => p.key.toLowerCase() === '~time');
 	return durationParam ? durationParam.value : null;
 }
 
@@ -155,7 +161,7 @@ function getSetRecordedDuration(set: ExerciseSet): string | null {
  * Returns: Rest duration string (e.g., "60s") or null if not set
  */
 function getSetRestDuration(set: ExerciseSet): string | null {
-	const restParam = set.params.find(p => p.key.toLowerCase() === 'rest');
+	const restParam = set.params.find(p => p.key.toLowerCase() === '~rest');
 	return restParam ? restParam.value : null;
 }
 
@@ -312,8 +318,7 @@ function computeExerciseTotals(exercise: Exercise, isCompleted: boolean): {
 		// If exercise is completed, sum recorded durations from each set
 		if (isCompleted) {
 			for (const param of set.params) {
-				if (param.key.toLowerCase() === '~time' && !param.editable) {
-					// Non-editable duration = recorded time (captured during set)
+				if (param.key.toLowerCase() === '~time') {
 					const seconds = parseDurationToSeconds(param.value);
 					totalRecordedTime += seconds;
 				}
@@ -474,9 +479,9 @@ export function renderExercise(
 
 		// 1. Exercise completed: show recorded duration with checkmark
 		// This is the final state after workout finishes
-		if (exercise.state === 'completed' && exercise.recordedDuration) {
-			timerEl.textContent = exercise.recordedDuration;
-			timerEl.createSpan({ cls: 'timer-indicator recorded', text: ' ✓' });
+		if (exercise.state === 'completed' && exercise.recordedTime) {
+			timerEl.textContent = exercise.recordedTime;
+			timerEl.createSpan({ cls: 'timer-indicator recorded', text: TIMER_ICONS['recorded'] });
 		} 
 		// 2. Exercise currently active: show live timer (updates in real-time)
 		// During workout, timer counts up/down and keeps updating via updateExerciseTimer()
@@ -487,7 +492,7 @@ export function renderExercise(
 		// Only show countdown indicator if single excersie.
 		else if (!hasMultipleSets && exercise.targetDuration) {
 			timerEl.textContent = formatDuration(exercise.targetDuration);
-			timerEl.createSpan({ cls: 'timer-indicator count-down', text: ' ▼' });
+			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
 		} 
 		// 4. Pending exercise with no target: show placeholder
 		// Indicates exercise not yet started and has no defined duration
@@ -629,10 +634,6 @@ function renderSetWithTimerElement(
 		setInputs.set(setIndex, setParamInputs);
 	}
 
-
-
-
-
 	// Timer display (right side of mainRow)
 	// Shown on mainRow if no sets or single set, otherwise on active set
 	// Priority order: completed > active > static target > pending placeholder
@@ -644,7 +645,7 @@ function renderSetWithTimerElement(
 
 	if ( workoutState === 'completed' && recordedDuration) {
 		timerEl.textContent = recordedDuration;
-		timerEl.createSpan({ cls: 'timer-indicator recorded', text: ' ✓' });
+		timerEl.createSpan({ cls: 'timer-indicator recorded', text: TIMER_ICONS['recorded'] });
 	} 
 	// Set currently active: show live timer (updates in real-time)
 	else if (isActive && timerState) {
@@ -680,34 +681,23 @@ function renderSetWithTimerElement(
 			
 			if (remaining > 0) {
 				timerEl.textContent = formatDuration(remaining);
-				timerEl.createSpan({ cls: 'timer-indicator rest', text: ' ⏸' });
+				timerEl.createSpan({ cls: 'timer-indicator rest', text: TIMER_ICONS['countdown'] });
 			} else {
 				// Rest time exceeded (overtime)
 				timerEl.textContent = formatDuration(Math.abs(remaining));
 				timerEl.addClass('rest-overtime');
-				timerEl.createSpan({ cls: 'timer-indicator', text: ' ⏸' });
+				timerEl.createSpan({ cls: 'timer-indicator', text: TIMER_ICONS['countup'] });
 			}
 		} else {
 			// Not in rest: show exercise timer (count-up or countdown)
 			updateExerciseTimer(timerEl, timerState, undefined);
 		}
 	}
-	else if (set.state === 'pending') {
-		// Pending set with defined rest: show static rest duration as placeholder
-		const restDurationStr = getSetRestDuration(set);
-		if (restDurationStr) {
-			timerEl.textContent = restDurationStr;
-			timerEl.createSpan({ cls: 'timer-indicator', text: ' ⏸' });
-		} else {
-			// No rest defined: show placeholder
-			timerEl.textContent = '--';
-		}
-	}
 	else {
 		const setDurationStr = getSetDuration(set);
 		if (setDurationStr) {
 			timerEl.textContent = setDurationStr;
-			timerEl.createSpan({ cls: 'timer-indicator', text: ' ⏸' });
+			timerEl.createSpan({ cls: 'timer-indicator', text: TIMER_ICONS['countdown'] });
 		} else {
 			// No duration defined: show placeholder
 			timerEl.textContent = '--';

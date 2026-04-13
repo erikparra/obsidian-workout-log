@@ -505,7 +505,7 @@ export function setRecordedDuration(
 		});
 	}
 
-	exercise.recordedDuration = durationStr;
+	exercise.recordedTime = durationStr;
 	return newParsed;
 }
 
