@@ -59,9 +59,9 @@ function tokenizeExerciseLine(line: string): { stateChar: string; remainder: str
  * Format: "- [STATE] Exercise Name | Key: [value] unit | Key: value"
  *
  * Special handling:
- * - Duration params: editable [60s] = countdown target, locked 45s = recorded time
+ * - Duration params: editable [60s] = countdown target, locked 45s = countdown timer + auto advance
  * - All other params are stored in exercise.params
- * - Returns empty sets array (filled by parent parseWorkout)
+ * - Sets array is empty (filled by parent parseWorkout)
  */
 export function parseExercise(line: string, lineIndex: number): Exercise | null {
 	const tokenized = tokenizeExerciseLine(line);
@@ -104,8 +104,8 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 		params,
 		sets: [],        // Set by parent parseWorkout, not by this function
 		targetDuration,  // Seconds: used for countdown timers
-		recordedTime, // Seconds: actual time recorded after completion
-		recordedRest, // Seconds: actual rest time recorded after completion
+		recordedTime,    // Seconds: actual time recorded after completion
+		recordedRest,    // Seconds: actual rest time recorded after completion
 		lineIndex
 	};
 }
