@@ -152,7 +152,7 @@ function getSetRecordedDuration(set: ExerciseSet): string | null {
 }
 
 /**
- * Extract rest duration from a set's rest parameter.
+ * Extract recorded rest duration from a set (system-managed ~rest param).
  * Rest is the period between sets (after completing one set, before starting next).
  *
  * Parameters:
