@@ -25,10 +25,11 @@ export interface ExerciseParam {
 export interface ExerciseSet {
 	state: ExerciseState;
 	params: ExerciseParam[];
-	lineIndex: number;           // Line index relative to exercise section start
+	lineIndex: number;        // Line index relative to exercise section start
 	targetDuration?: number;  // Target duration in seconds (for countdown timers)
-	recordedTime?: string;   // Actual elapsed time during the set (from timer)
-	recordedRest?: string;       // Actual elapsed time during rest period after this set
+	targetRest?: number;      // Target rest duration in seconds (for countdown timers)
+	recordedTime?: string;    // Actual elapsed time during the set (from timer)
+	recordedRest?: string;    // Actual elapsed time during rest period after this set
 }
 
 // Parsed metadata from the workout block header
@@ -45,12 +46,13 @@ export interface WorkoutMetadata {
 export interface Exercise {
 	state: ExerciseState;
 	name: string;
-	params: ExerciseParam[];      // Exercise-level params (e.g., Duration)
-	sets: ExerciseSet[];          // Nested sets
-	targetDuration?: number;      // Target duration in seconds (for countdown)
-	recordedTime?: string;    // Recorded duration after completion
-	recordedRest?: string;       // Recorded rest duration after completion
-	lineIndex: number;            // Line index relative to exercise section start
+	params: ExerciseParam[];   // Exercise-level params (e.g., Duration)
+	sets: ExerciseSet[];       // Nested sets
+	targetDuration?: number;   // Target duration in seconds (for countdown)
+	targetRest?: number;       // Target rest duration in seconds (for countdown)
+	recordedTime?: string;     // Recorded duration after completion
+	recordedRest?: string;     // Recorded rest duration after completion
+	lineIndex: number;         // Line index relative to exercise section start
 }
 
 // Complete parsed workout block

@@ -76,6 +76,7 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 
 	const params: ExerciseParam[] = [];
 	let targetDuration: number | undefined;
+	let targetRest: number | undefined;
 	let recordedTime: string | undefined;
 	let recordedRest: string | undefined;
 
@@ -85,7 +86,11 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 			if (param.key.toLowerCase() === 'duration') {
 				targetDuration = parseDurationToSeconds(param.value);
 				params.push(param);
-			} 
+			}
+			else if (param.key.toLowerCase() === 'rest') {
+				targetRest = parseDurationToSeconds(param.value);
+				params.push(param);
+			}
 			else if (param.key.toLowerCase() === '~time') {
 				recordedTime = param.value;
 			}
@@ -104,6 +109,7 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 		params,
 		sets: [],        // Set by parent parseWorkout, not by this function
 		targetDuration,  // Seconds: used for countdown timers
+		targetRest,      // Seconds: used for rest periods
 		recordedTime,    // Seconds: actual time recorded after completion
 		recordedRest,    // Seconds: actual rest time recorded after completion
 		lineIndex
@@ -133,6 +139,7 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 
 	const params: ExerciseParam[] = [];
 	let targetDuration: number | undefined;
+	let targetRest: number | undefined;
 	let recordedTime: string | undefined;
 	let recordedRest: string | undefined;
 
@@ -143,6 +150,10 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 				targetDuration = parseDurationToSeconds(param.value);
 				params.push(param);
 			} 
+			else if (param.key.toLowerCase() === 'rest') {
+				targetRest = parseDurationToSeconds(param.value);
+				params.push(param);
+			}
 			else if (param.key.toLowerCase() === '~time') {
 				recordedTime = param.value;
 			} 
@@ -160,6 +171,7 @@ export function parseSet(line: string, lineIndex: number): ExerciseSet | null {
 		params,
 		lineIndex,
 		targetDuration,  // Seconds: used for countdown timers
+		targetRest,      // Seconds: used for rest periods
 		recordedTime,    // Actual elapsed time during set
 		recordedRest     // Actual elapsed rest period after set
 	};

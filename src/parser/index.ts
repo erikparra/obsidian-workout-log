@@ -82,6 +82,7 @@ export function parseWorkout(source: string): ParsedWorkout {
 					params: currentExercise.params,
 					lineIndex: currentExercise.lineIndex,
 					targetDuration: currentExercise.targetDuration,
+					targetRest: currentExercise.targetRest,
 					recordedTime: currentExercise.recordedTime,
 					recordedRest: currentExercise.recordedRest
 				});
@@ -107,6 +108,7 @@ export function parseWorkout(source: string): ParsedWorkout {
 			params: currentExercise.params,
 			lineIndex: currentExercise.lineIndex,
 			targetDuration: currentExercise.targetDuration,
+			targetRest: currentExercise.targetRest,
 			recordedTime: currentExercise.recordedTime,
 			recordedRest: currentExercise.recordedRest
 		});
