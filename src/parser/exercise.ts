@@ -274,6 +274,7 @@ function parseParam(paramStr: string): ExerciseParam | null {
 	const allowedParams = ['duration', 'weight', 'reps', 'rest', '~time', '~rest'];
 	const paramKeyLower = keyToken.value.toLowerCase();
 	if (!allowedParams.includes(paramKeyLower)) {
+		console.warn(`Ignoring unrecognized parameter: ${keyToken.value}`);
 		return null; // Ignore unrecognized parameters
 	}
 
@@ -284,7 +285,7 @@ function parseParam(paramStr: string): ExerciseParam | null {
 
 	// Duration formats use compound notation (e.g., "1m 30s"), so combine numeric + unit
 	// ~time and ~rest also follow duration format from serialization
-	const isDurationParam = ['duration', '~time', '~rest'].includes(keyToken.value.toLowerCase());
+	const isDurationParam = ['duration', 'rest', '~time', '~rest'].includes(keyToken.value.toLowerCase());
 	if (isDurationParam && finalUnit) {
 		finalValue = finalValue + finalUnit;
 		finalUnit = undefined;
