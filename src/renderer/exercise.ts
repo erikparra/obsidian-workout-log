@@ -492,13 +492,8 @@ export function renderExercise(
 			updateExerciseTimer(timerEl, timerState, exercise.targetDuration);
 		} 
 		// 3. Static target display (when not active)
-		// Priority order: set row duration > exercise row duration
 		else if (singleSetDuration) {
 			timerEl.textContent = formatDuration(singleSetDuration);
-			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
-		} 
-		else if (exercise.targetDuration) {
-			timerEl.textContent = formatDuration(exercise.targetDuration);
 			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
 		} 
 		// 4. Pending exercise with no target: show placeholder
@@ -701,7 +696,7 @@ function renderSetWithTimerElement(
 		const setDuration = setDurationStr ? parseDurationToSeconds(setDurationStr) : 0;
 		if (setDuration != 0 ) {
 			timerEl.textContent = formatDuration(setDuration);
-			timerEl.createSpan({ cls: 'timer-indicator', text: TIMER_ICONS['countdown'] });
+			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
 		} else {
 			console.log('No duration defined for set:', set);
 			// No duration defined: show placeholder
