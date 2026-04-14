@@ -145,8 +145,9 @@ export function renderWorkout(ctx: RendererContext): void {
 		let lastKnownActiveIndex = initialActiveIndex;
 		// Prevent multiple auto-advances from the same render instance
 		let hasAutoAdvanced = false;
+		let unsubscribe: () => void;
 
-		timerManager.subscribe(workoutId, (state: TimerState) => {
+		unsubscribe = timerManager.subscribe(workoutId, (state: TimerState) => {
 			// Update the header timer display
 			updateHeaderTimer(headerTimerEl, state);
 
@@ -156,7 +157,12 @@ export function renderWorkout(ctx: RendererContext): void {
 			// Stale render detection: if active index changed, a new render is handling updates
 			// Stop processing - this render is obsolete
 			if (currentActiveIndex !== lastKnownActiveIndex) {
+				console.log('Stale render detected. Current active index:', currentActiveIndex, 'Last known active index:', lastKnownActiveIndex);
+				if (unsubscribe) unsubscribe();
 				return;
+			}
+			else {
+				console.log('Valid render. Current active index:', currentActiveIndex)
 			}
 
 			// Update the active exercise's timer display

@@ -473,8 +473,6 @@ export function renderExercise(
 	// Shown on mainRow if single set, otherwise on active set
 	// Priority order: completed > active > static target > pending placeholder
 	let timerEl: HTMLElement | null = null;
-
-	console.log('Exercise.sets.length: ', exercise.sets.length);
 	
 	if (!hasMultipleSets) {
 		timerEl = mainRow.createSpan({ cls: 'workout-exercise-timer' });
@@ -498,7 +496,6 @@ export function renderExercise(
 		} 
 		// 4. Pending exercise with no target: show placeholder
 		else {
-			console.log('No duration defined for set:', exercise);
 			timerEl.textContent = '--';
 		}
 	}
