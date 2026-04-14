@@ -138,29 +138,29 @@ function getDisplayableSetParams(set: ExerciseSet): ExerciseParam[] {
 }
 
 /**
- * Extract recorded duration from a set (system-managed ~time param).
- * Recorded durations are locked (not editable) params created after set completion.
+ * Extract recorded time from a set (system-managed ~time param).
+ * Recorded times are locked (not editable) params created after set completion.
  *
  * Parameters:
  * - set: ExerciseSet to extract from
  *
- * Returns: Recorded duration string (e.g., "1m 30s") or null if not recorded
+ * Returns: Recorded time string (e.g., "1m 30s") or null if not recorded
  */
-function getSetRecordedDuration(set: ExerciseSet): string | null {
+function getSetRecordedTime(set: ExerciseSet): string | null {
 	const durationParam = set.params.find(p => p.key.toLowerCase() === '~time');
 	return durationParam ? durationParam.value : null;
 }
 
 /**
- * Extract recorded rest duration from a set (system-managed ~rest param).
+ * Extract recorded rest from a set (system-managed ~rest param).
  * Rest is the period between sets (after completing one set, before starting next).
  *
  * Parameters:
  * - set: ExerciseSet to extract from
  *
- * Returns: Rest duration string (e.g., "60s") or null if not set
+ * Returns: Rest string (e.g., "60s") or null if not set
  */
-function getSetRestDuration(set: ExerciseSet): string | null {
+function getSetRecordedRest(set: ExerciseSet): string | null {
 	const restParam = set.params.find(p => p.key.toLowerCase() === '~rest');
 	return restParam ? restParam.value : null;
 }
@@ -470,13 +470,16 @@ export function renderExercise(
 	}
 
 	// Timer display (right side of mainRow)
-	// Shown on mainRow if no sets or single set, otherwise on active set
+	// Shown on mainRow if single set, otherwise on active set
 	// Priority order: completed > active > static target > pending placeholder
 	let timerEl: HTMLElement | null = null;
+
+	console.log('Exercise.sets.length: ', exercise.sets.length);
 	
-	if (exercise.sets.length === 0 || !hasMultipleSets) {
+	if (!hasMultipleSets) {
 		timerEl = mainRow.createSpan({ cls: 'workout-exercise-timer' });
 
+		const singleSetDuration = exercise.sets[0] ? exercise.sets[0].targetDuration : undefined;
 		// 1. Exercise completed: show recorded duration with checkmark
 		// This is the final state after workout finishes
 		if (exercise.state === 'completed' && exercise.recordedTime) {
@@ -489,20 +492,23 @@ export function renderExercise(
 			updateExerciseTimer(timerEl, timerState, exercise.targetDuration);
 		} 
 		// 3. Static target display (when not active)
-		// Only show countdown indicator if single excersie.
-		else if (!hasMultipleSets && exercise.targetDuration) {
+		// Priority order: set row duration > exercise row duration
+		else if (singleSetDuration) {
+			timerEl.textContent = formatDuration(singleSetDuration);
+			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
+		} 
+		else if (exercise.targetDuration) {
 			timerEl.textContent = formatDuration(exercise.targetDuration);
 			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
 		} 
 		// 4. Pending exercise with no target: show placeholder
-		// Indicates exercise not yet started and has no defined duration
-		else if (!hasMultipleSets && exercise.state === 'pending') {
+		else {
+			console.log('No duration defined for set:', exercise);
 			timerEl.textContent = '--';
 		}
 	}
-
 	// Render sets as indented rows (only for multi-set exercises)
-	if (hasMultipleSets) {
+	else {
 		const setsContainer = exerciseEl.createDiv({ cls: 'workout-sets' });
 		for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
 			const set = exercise.sets[setIndex];
@@ -536,10 +542,7 @@ export function renderExercise(
 				);
 			}
 		}
-	} else if (!hasMultipleSets && isActive && workoutState === 'started') {
-		// For single-set active exercises, store the timerEl from mainRow as setTimerEl
-		setTimerEl = timerEl;
-	}
+	} 
 
 	// Controls row (only for active set during workout)
 	if (isActive && workoutState === 'started') {
@@ -641,7 +644,7 @@ function renderSetWithTimerElement(
 	timerEl = setRow.createSpan({ cls: 'workout-set-timer' });
 
 	// Show recorded duration for completed sets
-	const recordedDuration = getSetRecordedDuration(set);
+	const recordedDuration = getSetRecordedTime(set);
 
 	if ( workoutState === 'completed' && recordedDuration) {
 		timerEl.textContent = recordedDuration;
@@ -650,7 +653,7 @@ function renderSetWithTimerElement(
 	// Set currently active: show live timer (updates in real-time)
 	else if (isActive && timerState) {
 		// Get rest duration for timer logic 
-		const restDurationStr = getSetRestDuration(set);
+		const restDurationStr = getSetRecordedRest(set);
 		
 		// In rest mode: show rest timer with phase-based color coding
 		if (timerState.isRestActive && timerState.restRemaining !== undefined) {
@@ -695,10 +698,12 @@ function renderSetWithTimerElement(
 	}
 	else {
 		const setDurationStr = getSetDuration(set);
-		if (setDurationStr) {
-			timerEl.textContent = setDurationStr;
+		const setDuration = setDurationStr ? parseDurationToSeconds(setDurationStr) : 0;
+		if (setDuration != 0 ) {
+			timerEl.textContent = formatDuration(setDuration);
 			timerEl.createSpan({ cls: 'timer-indicator', text: TIMER_ICONS['countdown'] });
 		} else {
+			console.log('No duration defined for set:', set);
 			// No duration defined: show placeholder
 			timerEl.textContent = '--';
 		}
