@@ -286,7 +286,7 @@ function parseParam(paramStr: string): ExerciseParam | null {
 	const allowedParams = ['duration', 'weight', 'reps', 'rest', '~time', '~rest'];
 	const paramKeyLower = keyToken.value.toLowerCase();
 	if (!allowedParams.includes(paramKeyLower)) {
-		console.warn(`Ignoring unrecognized parameter: ${keyToken.value}`);
+		console.log(`Ignoring unrecognized parameter: ${keyToken.value}`);
 		return null; // Ignore unrecognized parameters
 	}
 

@@ -161,9 +161,6 @@ export function renderWorkout(ctx: RendererContext): void {
 				if (unsubscribe) unsubscribe();
 				return;
 			}
-			else {
-				console.log('Valid render. Current active index:', currentActiveIndex)
-			}
 
 			// Update the active exercise's timer display
 			const activeElements = exerciseElements[currentActiveIndex];
