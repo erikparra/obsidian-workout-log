@@ -14,8 +14,8 @@ jest.mock('./header', () => ({
 jest.mock('./exercise', () => ({
 	renderExercise: jest.fn(() => ({
 		container: { tag: 'div' },
-		timerEl: null,
-		setTimerEl: null,
+		timerEl: { textContent: '--:--' },
+		setTimerEl: { textContent: '--:--' },
 		inputs: new Map(),
 		setInputs: new Map()
 	})),
@@ -671,10 +671,13 @@ describe('renderWorkout', () => {
 				restRemaining: 0
 			};
 
+			const { updateHeaderTimer } = require('./header');
+			const { updateExerciseTimer } = require('./exercise');
 			timerCallback(timerState);
 
 			// Verify header timer was updated
-			expect(mockCallbacks).toBeDefined();
+			expect(updateHeaderTimer).toHaveBeenCalled();
+			expect(updateExerciseTimer).toHaveBeenCalled();
 		});
 
 		it('should not subscribe to timer when workout is not running', () => {
@@ -848,8 +851,8 @@ describe('renderWorkout', () => {
 			// Call the timer callback
 			timerCallback(timerState);
 			
-			// Verify callback ran without errors
-			expect(mockCallbacks).toBeDefined();
+			// Verify onRestEnd was called to auto-advance
+			expect(mockCallbacks.onRestEnd).toHaveBeenCalledWith(0);
 		});
 	});
 

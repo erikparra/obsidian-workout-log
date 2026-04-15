@@ -694,8 +694,11 @@ describe('renderExercise & updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 30,
+				workoutElapsed: 0,
+				exerciseElapsed: 0,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 30, // Assuming 30s elapsed in rest
 				restRemaining: 60
 			};
 			const result = renderExercise(
@@ -727,9 +730,12 @@ describe('renderExercise & updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 60,
+				workoutElapsed: 0,
+				exerciseElapsed: 0,
+				isOvertime: false,
 				isRestActive: true,
-				restRemaining: 45  // 45 / 90 = 50% (yellow phase)
+				restElapsed: 45, // Assuming 45s elapsed in rest
+				restRemaining: 45
 			};
 			const result = renderExercise(
 				container,
@@ -760,9 +766,12 @@ describe('renderExercise & updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 90,
+				workoutElapsed: 0,
+				exerciseElapsed: 0,
+				isOvertime: false,
 				isRestActive: true,
-				restRemaining: 20  // 20 / 90 = 22% (red phase)
+				restElapsed: 70, // Assuming 70s elapsed in rest
+				restRemaining: 20
 			};
 			const result = renderExercise(
 				container,
@@ -793,9 +802,12 @@ describe('renderExercise & updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 75,
+				workoutElapsed: 0,
+				exerciseElapsed: 0,
+				isOvertime: true,
 				isRestActive: true,
-				restRemaining: -15  // Negative = overtime
+				restElapsed: 75, // Assuming 75s elapsed in rest
+				restRemaining: -15
 			};
 			const result = renderExercise(
 				container,
@@ -954,8 +966,11 @@ describe('renderExercise & updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 30,
-				isRestActive: false
+				workoutElapsed: 0,
+				exerciseElapsed: 30,
+				isOvertime: false,
+				isRestActive: false,
+				restRemaining: 0
 			};
 			const result = renderExercise(
 				container,
@@ -1082,8 +1097,11 @@ describe('renderExercise & updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 30,
-				isRestActive: false
+				workoutElapsed: 0,
+				exerciseElapsed: 30,
+				isOvertime: false,
+				isRestActive: false,
+				restRemaining: 0
 			};
 			const result = renderExercise(
 				container,
@@ -1665,7 +1683,10 @@ describe('renderExercise & updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ setIndex: 0, phase: 'rest' },
+				{ workoutElapsed: 0, exerciseElapsed: 15, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -1775,8 +1796,11 @@ describe('updateExerciseTimer', () => {
 		it('should display formatted elapsed time', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 120,
-				exerciseElapsed: 45,
+				exerciseElapsed: 45, // Assuming this is the relevant elapsed time for count-up
+				isOvertime: false,
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 
@@ -1788,8 +1812,11 @@ describe('updateExerciseTimer', () => {
 			timerEl.textContent = 'Previous Content';
 			const timerState: TimerState = {
 				workoutElapsed: 120,
-				exerciseElapsed: 45,
+				exerciseElapsed: 45, // Assuming this is the relevant elapsed time for count-up
+				isOvertime: false,
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 
@@ -1800,8 +1827,11 @@ describe('updateExerciseTimer', () => {
 		it('should handle zero elapsed time', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 0,
-				exerciseElapsed: 0,
+				exerciseElapsed: 0, // Assuming this is the relevant elapsed time for count-up
+				isOvertime: false,
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 
@@ -1814,8 +1844,11 @@ describe('updateExerciseTimer', () => {
 		it('should display countdown timer', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 120,
-				exerciseElapsed: 45,
+				exerciseElapsed: 45, // Assuming this is the relevant elapsed time for countdown
+				isOvertime: false,
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 			const targetDuration = 120;
@@ -1828,8 +1861,11 @@ describe('updateExerciseTimer', () => {
 		it('should handle target duration provided', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 120,
-				exerciseElapsed: 45,
+				exerciseElapsed: 45, // Assuming this is the relevant elapsed time for countdown
+				isOvertime: false,
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 			const targetDuration = 60;
@@ -1842,8 +1878,11 @@ describe('updateExerciseTimer', () => {
 		it('should display overtime when elapsed exceeds target', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 150,
-				exerciseElapsed: 125,
+				exerciseElapsed: 125, // Assuming this is the relevant elapsed time for countdown
+				isOvertime: true, // Should be true if overtime
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 			const targetDuration = 60;
@@ -1855,8 +1894,11 @@ describe('updateExerciseTimer', () => {
 		it('should add overtime class on overtime', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 200,
-				exerciseElapsed: 200,
+				exerciseElapsed: 200, // Assuming this is the relevant elapsed time for countdown
+				isOvertime: true, // Should be true if overtime
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 			const targetDuration = 60;
@@ -1868,8 +1910,11 @@ describe('updateExerciseTimer', () => {
 		it('should handle exact target duration match', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 100,
-				exerciseElapsed: 60,
+				exerciseElapsed: 60, // Assuming this is the relevant elapsed time for countdown
+				isOvertime: false,
 				isRestActive: false,
+				restElapsed: 0,
+				exerciseRemaining: undefined,
 				restRemaining: 0
 			};
 			const targetDuration = 60;
@@ -1920,11 +1965,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 10, isRestActive: false },
-				mockCallbacks,
-				'started',
-				1, // totalExercises
-				restDuration // restDuration parameter
+				{ workoutElapsed: 0, exerciseElapsed: 10, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				restDuration, // restDuration
+				1 // totalExercises
 			);
 			expect(result.container).toBeDefined();
 		});
@@ -1947,7 +1992,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 30, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 30, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started',
 				2, // totalExercises (not last)
@@ -1973,7 +2021,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 30, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 30, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started',
 				2, // totalExercises (there's another after this)
@@ -1999,7 +2050,10 @@ describe('updateExerciseTimer', () => {
 				2,  // Last exercise index
 				true,
 				1,
-				{ elapsed: 30, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 30, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started',
 				3, // totalExercises (3 total, on exercise 2 which is last)
@@ -2022,7 +2076,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 30, isRestActive: true, restRemaining: 20 },
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 30, restRemaining: 20 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started',
 				1,
@@ -2045,9 +2102,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 30, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 60, restRemaining: 0 },  // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			// Pause button should be present and functional
 			expect(mockCallbacks.onPauseExercise).toBeDefined();
@@ -2067,9 +2126,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 30, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 30, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(mockCallbacks.onExerciseSkip).toBeDefined();
 		});
@@ -2088,9 +2149,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 30, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 30, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(mockCallbacks.onExerciseAddSet).toBeDefined();
 		});
@@ -2139,9 +2202,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 5, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 250, restRemaining: 50 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(result.inputs.size).toBeGreaterThan(0);
 		});
@@ -2168,9 +2233,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 10, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 150, restRemaining: 150 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(result.setInputs.size).toBe(1);
 		});
@@ -2663,7 +2730,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 5, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: true, isRestActive: true, restElapsed: 75, restRemaining: -15 },  // Overtime by 15 seconds
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -2722,7 +2792,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 40, isRestActive: true, restRemaining: 220 }, // 220/300 = 73%
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 50, restRemaining: 250 }, // 250/300 = 83%
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -2753,9 +2826,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 10, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 10, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(container.querySelector('.workout-exercise')).toBeTruthy();
 		});
@@ -2786,10 +2861,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 25, isRestActive: false },
-				mockCallbacks,
-				'started',
-				undefined,
+				{ workoutElapsed: 0, exerciseElapsed: 25, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
 				3 // totalExercises
 			);
 			expect(result.container).toBeTruthy();
@@ -2814,9 +2889,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				2, // active set is index 2
-				{ elapsed: 30, isRestActive: false },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 30, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(container.children.length).toBeGreaterThan(0);
 		});
@@ -2848,9 +2925,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 60, isRestActive: true, restRemaining: 65 },
-				mockCallbacks,
-				'started'
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 55, restRemaining: 65 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
+				undefined // totalExercises
 			);
 			expect(container.querySelector('.workout-exercise')).toBeTruthy();
 		});
@@ -2873,10 +2952,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 20, isRestActive: false },
-				mockCallbacks,
-				'started',
-				undefined,
+				{ workoutElapsed: 0, exerciseElapsed: 20, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
 				2 // totalExercises
 			);
 			const buttons = container.querySelectorAll('button');
@@ -2931,7 +3010,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 5, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 0, restRemaining: 30 },  // No rest duration param
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -2969,7 +3051,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 5, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -3003,7 +3088,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 5, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -3037,10 +3125,11 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 5, isRestActive: false },
-				mockCallbacks,
-				'started',
-				60 // restDuration
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				10, // restDuration
+				undefined // totalExercises
 			);
 
 			const buttons = result.container.querySelectorAll('button');
@@ -3074,15 +3163,15 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 5, isRestActive: false },
-				mockCallbacks,
-				'started',
-				undefined,
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				10, // restDuration
 				2 // totalExercises
 			);
 
 			const buttons = result.container.querySelectorAll('button');
-			const nextBtn = buttons.find(b => b.textContent === 'Next Set');
+			const nextBtn = buttons.find(b => b.textContent === 'Next');
 			expect(nextBtn).toBeTruthy();
 			if (nextBtn) {
 				nextBtn.click();
@@ -3111,10 +3200,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 5, isRestActive: false },
-				mockCallbacks,
-				'started',
-				undefined,
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
 				3 // totalExercises - not the last
 			);
 
@@ -3148,10 +3237,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 5, isRestActive: false },
-				mockCallbacks,
-				'started',
-				undefined,
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
 				1 // totalExercises - this is the last
 			);
 
@@ -3185,15 +3274,15 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 120, isRestActive: true, restRemaining: 30 },
-				mockCallbacks,
-				'started',
-				undefined,
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 120, restRemaining: 30 }, // timerState
+				mockCallbacks, // callbacks
+				'started', // workoutState
+				undefined, // restDuration
 				2 // totalExercises
 			);
 
 			const buttons = result.container.querySelectorAll('button');
-			const startNextBtn = buttons.find(b => b.textContent === 'Start Next');
+			const startNextBtn = buttons.find(b => b.textContent === 'Next');
 			expect(startNextBtn).toBeTruthy();
 			if (startNextBtn) {
 				startNextBtn.click();
@@ -3572,7 +3661,10 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				0,
-				{ elapsed: 15, isRestActive: false },
+				{ workoutElapsed: 0, exerciseElapsed: 5, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
+				mockCallbacks,
+				'started',
+				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -3624,10 +3716,10 @@ describe('updateExerciseTimer', () => {
 		it('should exercise updateExerciseTimer with various timer states', () => {
 			const timerEl = new MockElement('span');
 			const timerState: TimerState = {
-				elapsed: 45,
 				workoutElapsed: 100,
 				exerciseElapsed: 45,
 				isRestActive: false,
+				isOvertime: false, // Added missing property
 				restRemaining: 0
 			};
 			updateExerciseTimer(timerEl, timerState, 60);
@@ -3637,10 +3729,11 @@ describe('updateExerciseTimer', () => {
 		it('should exercise updateExerciseTimer with target duration', () => {
 			const timerEl = new MockElement('span');
 			const timerState: TimerState = {
-				elapsed: 30,
 				workoutElapsed: 60,
 				exerciseElapsed: 30,
-				isRestActive: false
+				isRestActive: false,
+				isOvertime: false, // Added missing property
+				restRemaining: 0 // Added missing property
 			};
 			updateExerciseTimer(timerEl, timerState,120);
 			expect(timerEl.textContent).toBeTruthy();

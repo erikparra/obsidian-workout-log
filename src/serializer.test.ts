@@ -26,7 +26,7 @@ describe('serializeWorkout', () => {
 		expect(serialized).toContain('state: planned');
 		expect(serialized).toContain('---');
 		expect(serialized).toContain('- [ ] Exercise');
-		expect(serialized).toContain('- [ ] | Weight: [100] kg');
+		expect(serialized).toContain('  - [ ] | Weight: [100] kg');
 	});
 
 	it('should roundtrip parse and serialize', () => {
@@ -511,7 +511,8 @@ describe('totals persistence roundtrip', () => {
 		// First serialize - should calculate exercise totals
 		const serialized1 = serializeWorkout(parsed1);
 		expect(serialized1).toContain('- [x] Squats | ~rest: 2m | ~time: 4m 30s');
-		expect(serialized1).toContain('- [x] | Rest: 60 s | ~time: 2m | ~rest: 60s');
+		// ~time and ~rest are internal and should not be serialized on the set line
+		expect(serialized1).toContain('  - [x] | Rest: 60s');
 		
 		// Parse back
 		const parsed2 = parseWorkout(serialized1);

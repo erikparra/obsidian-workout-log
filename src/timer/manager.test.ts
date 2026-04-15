@@ -278,10 +278,10 @@ describe('TimerManager', () => {
 		it('should calculate rest elapsed time', () => {
 			manager.startWorkoutTimer('workout1');
 			manager.startRest('workout1', 60);
-			dateNowSpy.mockReturnValue(1035);
+			dateNowSpy.mockReturnValue(36000);
 			
 			const elapsed = manager.getRestElapsedSeconds('workout1');
-			expect(elapsed).toBe(35);
+			expect(elapsed).toBe(35); // 36000ms (now) - 1000ms (start) = 35000ms = 35s
 		});
 	});
 
@@ -289,10 +289,10 @@ describe('TimerManager', () => {
 		it('should calculate rest remaining seconds', () => {
 			manager.startWorkoutTimer('workout1');
 			manager.startRest('workout1', 60);
-			dateNowSpy.mockReturnValue(1020);
+			dateNowSpy.mockReturnValue(21000);
 			
 			const remaining = manager.getRestRemainingSeconds('workout1');
-			expect(remaining).toBeCloseTo(40, 1);
+			expect(remaining).toBeCloseTo(40, 1); // 60s duration - (21000ms - 1000ms) = 40s
 		});
 	});
 
