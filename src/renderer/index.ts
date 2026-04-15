@@ -153,6 +153,8 @@ export function renderWorkout(ctx: RendererContext): void {
 
 			// Get current active index from timer manager (not stale capture)
 			const currentActiveIndex = timerManager.getActiveExerciseIndex(workoutId);
+			const currentSetActiveIndex = timerManager.getActiveSetIndex(workoutId);
+			
 
 			// Stale render detection: if active index changed, a new render is handling updates
 			// Stop processing - this render is obsolete
@@ -165,26 +167,48 @@ export function renderWorkout(ctx: RendererContext): void {
 			// Update the active exercise's timer display
 			const activeElements = exerciseElements[currentActiveIndex];
 			const activeExercise = parsed.exercises[currentActiveIndex];
+			const activeSet = activeExercise?.sets[currentSetActiveIndex];
 
 			if (activeExercise) {
-				// Update set timer if exercise has sets
-				if (activeElements?.setTimerEl) {
+				// Update set timer if exercise has multisets
+				if (activeElements?.setTimerEl && !state.isRestActive) {
+					console.log(`[active] Active Exercise: [${currentActiveIndex}] ${activeExercise.name}, Active Set: [${currentSetActiveIndex}] ${activeSet?.lineIndex}`)
 					updateExerciseTimer(
 						activeElements.setTimerEl,
 						state,
-						undefined  // Set timers are count-up, not countdown
+						activeSet?.targetDuration  // Set timers are count-up, not countdown
 					);
-				} else if (activeElements?.timerEl) {
-					// Update exercise timer if no sets
+				}
+				// Update exercise timer if exercise has multiset and is in rest
+				else if (activeElements?.setTimerEl && state.isRestActive) { 
+					console.log(`[rest] Active Exercise: [${currentActiveIndex}] ${activeExercise.name}, Active Set: [${currentSetActiveIndex}] ${activeSet?.lineIndex}`)
+					updateExerciseTimer(
+						activeElements.setTimerEl,
+						state,
+						activeSet?.targetRest  // Set timers are count-up, not countdown
+					);
+				}
+				else if (activeElements?.timerEl && !state.isRestActive) {
+					// Update exercise timer while active if not multiset
+					console.log(`[active] Active Exercise: [${currentActiveIndex}] ${activeExercise.name}`);
 					updateExerciseTimer(
 						activeElements.timerEl,
 						state,
-						activeExercise.targetDuration
+						activeExercise.sets[0]?.targetDuration
+					);
+				}
+				else if (activeElements?.timerEl && state.isRestActive) {
+					// Update exercise timer while rest if not multiset
+					console.log(`[rest] Active Exercise: [${currentActiveIndex}] ${activeExercise.name}`);
+					updateExerciseTimer(
+						activeElements.timerEl,
+						state,
+						activeExercise.sets[0]?.targetRest
 					);
 				}
 
 				// Auto-advance to next exercise when rest completes
-				// Conditions: (1) on last set, (2) not last exercise, (3) rest finished
+				// Conditions: (1) on last set, (2) not last exercise, (3)  
 				const isLastSet = Array.isArray(activeExercise.sets) && activeElements?.setTimerEl &&
 					(timerManager.getActiveSetIndex(workoutId) === activeExercise.sets.length - 1);
 				const isLastExercise = currentActiveIndex === parsed.exercises.length - 1;

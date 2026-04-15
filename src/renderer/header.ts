@@ -12,7 +12,7 @@
  * - Timer shows different info based on workout state (planned, started, completed)
  */
 
-import { WorkoutMetadata, TimerState } from '../types';
+import { Constants, WorkoutMetadata, TimerState } from '../types';
 import { formatDuration, formatDurationHuman } from '../parser/exercise';
 
 /**
@@ -59,11 +59,11 @@ export function renderHeader(
 	if (metadata.state === 'completed' && metadata.duration) {
 		// Completed: show recorded final duration with checkmark
 		timerEl.textContent = metadata.duration;
-		timerEl.createSpan({ cls: 'workout-timer-indicator recorded', text: ' ✓' });
+		timerEl.createSpan({ cls: 'workout-timer-indicator recorded', text: Constants.TIMER_ICONS['recorded'] });
 	} else if (isTimerRunning && timerState) {
 		// Running: show total elapsed time count-up
 		timerEl.textContent = `Total: ${formatDuration(timerState.workoutElapsed)}`;
-		timerEl.createSpan({ cls: 'workout-timer-indicator count-up', text: ' ▲' });
+		timerEl.createSpan({ cls: 'workout-timer-indicator count-up', text: Constants.TIMER_ICONS['count-up'] });
 	} else if (metadata.state === 'planned') {
 		// Planned: show placeholder
 		timerEl.textContent = '--:--';
@@ -99,5 +99,5 @@ export function updateHeaderTimer(
 	timerEl.textContent = `Total: ${formatDuration(timerState.workoutElapsed)}`;
 	
 	// Add count-up indicator to show timer actively running
-	timerEl.createSpan({ cls: 'workout-timer-indicator count-up', text: ' ▲' });
+	timerEl.createSpan({ cls: 'workout-timer-indicator count-up', text: Constants.TIMER_ICONS['count-up'] });
 }

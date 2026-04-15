@@ -259,6 +259,14 @@
 	color: var(--color-red);
 }
 
+.timer-indicator.rest {
+	color: var(--color-blue);
+}
+
+.timer-indicator.rest-overtime {
+	color: var(--color-purple);
+}
+
 /* Exercise Controls */
 .workout-exercise-controls {
 	display: flex;

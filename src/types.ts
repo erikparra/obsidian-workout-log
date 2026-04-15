@@ -13,6 +13,29 @@ export interface Token {
 	value: string;
 }
 
+export abstract class Constants {
+	static readonly STATE_ICONS: Record<ExerciseState, string> = {
+		'pending': '○',
+		'inProgress': '◐',
+		'completed': '✓',
+		'skipped': '—'
+	};
+	static readonly PARAM_PREFIX_ICONS: Record<string, string> = {
+		'duration': '⏱️',
+		'reps': '×',
+		'rest': '⏸️'
+	};
+	static readonly TIMER_ICONS: Record<string, string> = {
+		'count-down': ' ▼',
+		'count-up': ' ▲',
+		'recorded': ' ✓',
+		'rest': ' ⏸',
+		'rest-overtime': ' ⏸',
+		'overtime': ' ⚠'
+
+	};
+}
+
 // Key-value pairs for exercise/set parameters
 export interface ExerciseParam {
 	key: string;

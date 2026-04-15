@@ -17,35 +17,8 @@
  * - Helper functions extract and compute exercise/set data
  */
 
-import { Exercise, ExerciseSet, ExerciseParam, ExerciseState, TimerState, WorkoutCallbacks } from '../types';
+import { Constants, Exercise, ExerciseSet, ExerciseParam, ExerciseState, TimerState, WorkoutCallbacks } from '../types';
 import { formatDuration, parseDurationToSeconds, formatDurationHuman } from '../parser/exercise';
-
-/**
- * Visual indicators for exercise/set states.
- * Maps ExerciseState to Unicode symbols:
- * - pending: ○ (empty circle)
- * - inProgress: ◐ (half circle)
- * - completed: ✓ (checkmark)
- * - skipped: — (dash)
- */
-const STATE_ICONS: Record<ExerciseState, string> = {
-	'pending': '○',
-	'inProgress': '◐',
-	'completed': '✓',
-	'skipped': '—'
-};
-
-const PARAM_PREFIX_ICONS: Record<string, string> = {
-	'duration': '⏱️',
-	'reps': '×',
-	'rest': '⏸️'
-};
-
-const TIMER_ICONS: Record<string, string> = {
-	'countdown': '▼',
-	'countup': '▲',
-	'recorded': '✓'
-};
 
 /**
  * Generate a consistent color hue from exercise name using djb2 hash.
@@ -223,8 +196,8 @@ function renderParamElement(
 
 	// Render prefix icon if icon exists for this param key
 	const keyLower = param.key.toLowerCase();
-	if (PARAM_PREFIX_ICONS[keyLower]) {
-		paramEl.createSpan({ cls: 'workout-param-prefix', text: PARAM_PREFIX_ICONS[keyLower] });
+	if (Constants.PARAM_PREFIX_ICONS[keyLower]) {
+		paramEl.createSpan({ cls: 'workout-param-prefix', text: Constants.PARAM_PREFIX_ICONS[keyLower] });
 	}
 
 	// Duration and rest are never editable - always display as read-only
@@ -386,7 +359,7 @@ export function renderExercise(
 
 	// State icon
 	const iconEl = mainRow.createSpan({ cls: 'workout-exercise-icon' });
-	iconEl.textContent = STATE_ICONS[exercise.state];
+	iconEl.textContent = Constants.STATE_ICONS[exercise.state];
 
 	// Exercise name
 	const nameEl = mainRow.createSpan({ cls: 'workout-exercise-name' });
@@ -482,7 +455,7 @@ export function renderExercise(
 		// This is the final state after workout finishes
 		if (exercise.state === 'completed' && exercise.recordedTime) {
 			timerEl.textContent = exercise.recordedTime;
-			timerEl.createSpan({ cls: 'timer-indicator recorded', text: TIMER_ICONS['recorded'] });
+			timerEl.createSpan({ cls: 'timer-indicator recorded', text: Constants.TIMER_ICONS['recorded'] });
 		} 
 		// 2. Exercise currently active: show live timer (updates in real-time)
 		// During workout, timer counts up/down and keeps updating via updateExerciseTimer()
@@ -492,7 +465,7 @@ export function renderExercise(
 		// 3. Static target display (when not active)
 		else if (singleSetDuration) {
 			timerEl.textContent = formatDuration(singleSetDuration);
-			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
+			timerEl.createSpan({ cls: 'timer-indicator count-down', text: Constants.TIMER_ICONS['count-down'] });
 		} 
 		// 4. Pending exercise with no target: show placeholder
 		else {
@@ -604,7 +577,7 @@ function renderSetWithTimerElement(
 
 	// State icon
 	const iconEl = setRow.createSpan({ cls: 'workout-set-icon' });
-	iconEl.textContent = STATE_ICONS[set.state];
+	iconEl.textContent = Constants.STATE_ICONS[set.state];
 
 	// Set label ("Set 1", "Set 2", etc.)
 	const labelEl = setRow.createSpan({ cls: 'workout-set-label' });
@@ -640,7 +613,7 @@ function renderSetWithTimerElement(
 
 	if ( workoutState === 'completed' && recordedDuration) {
 		timerEl.textContent = recordedDuration;
-		timerEl.createSpan({ cls: 'timer-indicator recorded', text: TIMER_ICONS['recorded'] });
+		timerEl.createSpan({ cls: 'timer-indicator recorded', text: Constants.TIMER_ICONS['recorded'] });
 	} 
 	// Set currently active: show live timer (updates in real-time)
 	else if (isActive && timerState) {
@@ -676,12 +649,12 @@ function renderSetWithTimerElement(
 			
 			if (remaining > 0) {
 				timerEl.textContent = formatDuration(remaining);
-				timerEl.createSpan({ cls: 'timer-indicator rest', text: TIMER_ICONS['countdown'] });
+				timerEl.createSpan({ cls: 'timer-indicator rest', text: Constants.TIMER_ICONS['count-down'] });
 			} else {
 				// Rest time exceeded (overtime)
 				timerEl.textContent = formatDuration(Math.abs(remaining));
 				timerEl.addClass('rest-overtime');
-				timerEl.createSpan({ cls: 'timer-indicator', text: TIMER_ICONS['countup'] });
+				timerEl.createSpan({ cls: 'timer-indicator overtime', text: Constants.TIMER_ICONS['count-up'] });
 			}
 		} else {
 			// Not in rest: show exercise timer (count-up or countdown)
@@ -693,9 +666,8 @@ function renderSetWithTimerElement(
 		const setDuration = setDurationStr ? parseDurationToSeconds(setDurationStr) : 0;
 		if (setDuration != 0 ) {
 			timerEl.textContent = formatDuration(setDuration);
-			timerEl.createSpan({ cls: 'timer-indicator count-down', text: TIMER_ICONS['countdown'] });
+			timerEl.createSpan({ cls: 'timer-indicator count-down', text: Constants.TIMER_ICONS['count-down'] });
 		} else {
-			console.log('No duration defined for set:', set);
 			// No duration defined: show placeholder
 			timerEl.textContent = '--';
 		}
@@ -829,22 +801,38 @@ export function updateExerciseTimer(
 ): void {
 	timerEl.empty();
 
-	if (targetDuration !== undefined) {
+	if (targetDuration !== undefined && !timerState.isRestActive) {
 		// Countdown mode: show remaining time vs target
 		const remaining = targetDuration - timerState.exerciseElapsed;
 		if (remaining > 0) {
 			// Time remaining: show countdown with ▼ indicator
 			timerEl.textContent = formatDuration(remaining);
-			timerEl.createSpan({ cls: 'timer-indicator count-down', text: ' ▼' });
+			timerEl.createSpan({ cls: 'timer-indicator count-down', text: Constants.TIMER_ICONS['count-down'] });
 		} else {
 			// Overtime: show absolute value in red with warning icon
 			timerEl.textContent = formatDuration(Math.abs(remaining));
 			timerEl.addClass('overtime');
-			timerEl.createSpan({ cls: 'timer-indicator overtime', text: ' ⚠' });
+			timerEl.createSpan({ cls: 'timer-indicator overtime', text: Constants.TIMER_ICONS['overtime'] });
 		}
-	} else {
+	}
+	else if (targetDuration !== undefined && timerState.isRestActive) {
+		// Countdown mode: show remaining time vs target
+		const restElapsed = timerState.restElapsed? timerState.restElapsed : 0;
+		const remaining = targetDuration - restElapsed;
+		if (remaining > 0) {
+			// Time remaining: show countdown with ▼ indicator
+			timerEl.textContent = formatDuration(remaining);
+			timerEl.createSpan({ cls: 'timer-indicator rest', text: Constants.TIMER_ICONS['rest'] });
+		} else {
+			// Overtime: show absolute value in red with warning icon
+			timerEl.textContent = formatDuration(Math.abs(remaining));
+			timerEl.addClass('overtime');
+			timerEl.createSpan({ cls: 'timer-indicator rest-overtime', text: Constants.TIMER_ICONS['rest-overtime'] });
+		}
+	}
+	 else {
 		// Count-up mode: show elapsed time from start (no target limit)
 		timerEl.textContent = formatDuration(timerState.exerciseElapsed);
-		timerEl.createSpan({ cls: 'timer-indicator count-up', text: ' ▲' });
+		timerEl.createSpan({ cls: 'timer-indicator count-up', text: Constants.TIMER_ICONS['count-up'] });
 	}
 }
