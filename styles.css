@@ -238,6 +238,34 @@
 	color: var(--color-red);
 }
 
+.workout-exercise-timer.rest {
+	color: #5be2fb;
+}
+
+.workout-exercise-timer.rest-overtime {
+	color: #2d92a6;
+}
+
+.workout-set-timer {
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+	color: var(--text-muted);
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
+.workout-set-timer.overtime {
+	color: var(--color-red);
+}
+
+.workout-set-timer.rest {
+	color: #5be2fb;
+}
+
+.workout-set-timer.rest-overtime {
+	color: #2d92a6;
+}
+
 .timer-indicator {
 	margin-left: 2px;
 	font-size: 0.85em;
@@ -260,11 +288,11 @@
 }
 
 .timer-indicator.rest {
-	color: var(--color-blue);
+	color: #5be2fb;
 }
 
 .timer-indicator.rest-overtime {
-	color: var(--color-purple);
+	color: #2d92a6;
 }
 
 /* Exercise Controls */

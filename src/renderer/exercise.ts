@@ -822,11 +822,12 @@ export function updateExerciseTimer(
 		if (remaining > 0) {
 			// Time remaining: show countdown with ▼ indicator
 			timerEl.textContent = formatDuration(remaining);
+			timerEl.addClass('rest');
 			timerEl.createSpan({ cls: 'timer-indicator rest', text: Constants.TIMER_ICONS['rest'] });
 		} else {
 			// Overtime: show absolute value in red with warning icon
 			timerEl.textContent = formatDuration(Math.abs(remaining));
-			timerEl.addClass('overtime');
+			timerEl.addClass('rest-overtime');
 			timerEl.createSpan({ cls: 'timer-indicator rest-overtime', text: Constants.TIMER_ICONS['rest-overtime'] });
 		}
 	}
