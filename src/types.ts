@@ -8,7 +8,7 @@ export type WorkoutState = 'planned' | 'started' | 'completed';
 export type ExerciseState = 'pending' | 'inProgress' | 'completed' | 'skipped';
 
 // Key-value pairs for exercise parameters
-export interface ParameterToken {
+export interface ExerciseParam {
 	key: string;
 	value: string;
 	editable: boolean;  // true if wrapped in [brackets]
@@ -28,7 +28,7 @@ export interface WorkoutMetadata {
 export interface Exercise {
 	state: ExerciseState;
 	name: string;
-	params: ParameterToken[];
+	params: ExerciseParam[];
 	targetDuration?: number;     // Target duration in seconds (for countdown)
 	recordedDuration?: string;   // Recorded duration after completion
 	lineIndex: number;           // Line index relative to exercise section start
