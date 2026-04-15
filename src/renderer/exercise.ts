@@ -649,10 +649,12 @@ function renderSetWithTimerElement(
 			
 			if (remaining > 0) {
 				timerEl.textContent = formatDuration(remaining);
+				timerEl.addClass('rest');
 				timerEl.createSpan({ cls: 'timer-indicator rest', text: Constants.TIMER_ICONS['count-down'] });
 			} else {
 				// Rest time exceeded (overtime)
 				timerEl.textContent = formatDuration(Math.abs(remaining));
+				timerEl.removeClass('rest');
 				timerEl.addClass('rest-overtime');
 				timerEl.createSpan({ cls: 'timer-indicator overtime', text: Constants.TIMER_ICONS['count-up'] });
 			}
@@ -751,7 +753,7 @@ function renderSetControls(
 	let nextBtnText: string;
 	if (timerState?.isRestActive) {
 		// During rest period, offer to start next
-		nextBtnText = 'Start Next';
+		nextBtnText = 'Next';
 	} else {
 		const isLastSet = setIndex === totalSets - 1;
 		const isLastExercise = typeof totalExercises === 'number' ? (exerciseIndex === totalExercises - 1) : false;
@@ -763,7 +765,7 @@ function renderSetControls(
 			nextBtnText = 'Done';
 		} else {
 			// Not last set
-			nextBtnText = 'Next Set';
+			nextBtnText = 'Next';
 		}
 	}
 	
