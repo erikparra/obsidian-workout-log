@@ -74,14 +74,14 @@ export function parseExercise(line: string, lineIndex: number): Exercise | null 
 	const name = parts[0] ?? '';
 	const paramStrings = parts.slice(1);
 
-	const params: ExerciseParam[] = [];
+	const params: ParameterToken[] = [];
 	let targetDuration: number | undefined;
 	let targetRest: number | undefined;
 	let recordedTime: string | undefined;
 	let recordedRest: string | undefined;
 
 	for (const paramStr of paramStrings) {
-		const param = parseParam(paramStr);
+		const param = tokenizeParam(paramStr);
 		if (param) {
 			if (param.key.toLowerCase() === 'duration') {
 				targetDuration = parseDurationToSeconds(param.value);
