@@ -29,8 +29,8 @@ export abstract class Constants {
 		'count-down': ' ▼',
 		'count-up': ' ▲',
 		'recorded': ' ✓',
-		'rest': ' ⏸',
-		'rest-overtime': ' ⏸',
+		'rest': ' ‖',
+		'rest-overtime': ' ‖',
 		'overtime': ' ⚠'
 
 	};

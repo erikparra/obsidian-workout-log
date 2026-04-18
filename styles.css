@@ -239,11 +239,11 @@
 }
 
 .workout-exercise-timer.rest {
-	color: #5be2fb;
+	color: var(--color-cyan);
 }
 
 .workout-exercise-timer.rest-overtime {
-	color: #2d92a6;
+	color: var(--color-blue);
 }
 
 .workout-set-timer {
@@ -259,11 +259,11 @@
 }
 
 .workout-set-timer.rest {
-	color: #5be2fb;
+	color: var(--color-cyan);
 }
 
 .workout-set-timer.rest-overtime {
-	color: #2d92a6;
+	color: var(--color-blue);
 }
 
 .timer-indicator {
@@ -288,11 +288,11 @@
 }
 
 .timer-indicator.rest {
-	color: #5be2fb;
+	color: var(--color-cyan);
 }
 
 .timer-indicator.rest-overtime {
-	color: #2d92a6;
+	color: var(--color-blue);
 }
 
 /* Exercise Controls */
@@ -396,6 +396,7 @@
 }
 
 /* Mobile Responsive Layout (phones and small tablets) */
+/* Tablet and Larger Phone Layout (480px to 768px) */
 @media (max-width: 768px) {
 	/* Workout Container - More compact */
 	.workout-container {
@@ -432,33 +433,35 @@
 		padding: 6px 8px;
 	}
 
-	/* Exercise Main Row - Allow wrapping */
-	.workout-exercise-main {
-		flex-wrap: wrap;
+	/* Exercise & Set Main Row - Prevent wrapping to keep timer on right */
+	.workout-exercise-main,
+	.workout-set-main {
+		flex-wrap: nowrap;
 		align-items: center;
 		gap: 8px;
 	}
 
-	/* Exercise Name - Natural width */
+	/* Exercise Name & Set Label - Allow text wrap if space is tight */
 	.workout-exercise-name {
 		min-width: auto;
 		flex: 0 1 auto;
+		white-space: normal;
+		word-break: break-word;
 	}
 
-	/* Params Container - Own line but compact width */
-	.workout-exercise-params {
-		flex: 0 0 100%;
-		flex-wrap: wrap;
-		gap: 6px;
-		order: 10;
-		justify-content: flex-start;
+	.workout-set-label {
+		min-width: 5ch;
+		flex: 0 1 auto;
+		white-space: normal;
+		word-break: break-word;
 	}
 
+	/* Params Container - Flexible width */
+	.workout-exercise-params,
 	.workout-set-params {
-		flex: 0 0 100%;
+		flex: 1 1 auto;
 		flex-wrap: wrap;
 		gap: 6px;
-		order: 10;
 		justify-content: flex-start;
 	}
 
@@ -478,11 +481,6 @@
 		height: 28px;
 		font-size: 1em;
 		padding: 0 4px;
-	}
-
-	/* Timer - Keep on right side of first row */
-	.workout-exercise-timer {
-		order: 5;
 	}
 
 	/* Exercise Controls - Smaller gaps */
@@ -507,6 +505,65 @@
 	.workout-btn-large {
 		padding: 8px 14px;
 		font-size: 0.9em;
+	}
+}
+
+/* Small Phone Layout (max 480px) */
+@media (max-width: 480px) {
+	/* Workout Container - Slightly more compact padding */
+	.workout-container {
+		padding: 8px;
+	}
+
+	/* Header - Keep stacking but potentially smaller gaps/padding */
+	.workout-header {
+		gap: 4px;
+		margin-bottom: 8px;
+		padding-bottom: 6px;
+	}
+
+	/* Exercises Container - Tighter gaps */
+	.workout-exercises {
+		gap: 2px;
+	}
+
+	/* Individual Exercise - More compact */
+	.workout-exercise {
+		padding: 4px 6px;
+	}
+
+	/* Exercise & Set Main Row - Tighter gaps */
+	.workout-exercise-main,
+	.workout-set-main {
+		gap: 6px;
+	}
+
+	/* Params Container - Tighter gaps */
+	.workout-exercise-params,
+	.workout-set-params {
+		gap: 4px;
+	}
+
+	/* Individual Param Pills - Smaller touch targets, compact width */
+	.workout-param {
+		height: 32px;
+		padding: 0 8px;
+		font-size: 0.9em;
+	}
+
+	/* Input Fields - Smaller for touch, flexible width */
+	.workout-param-input {
+		min-width: 45px;
+		max-width: 80px;
+		height: 24px;
+		font-size: 0.9em;
+	}
+
+	/* Buttons - Even smaller for very small screens */
+	.workout-btn {
+		padding: 4px 6px;
+		font-size: 0.75em;
+		min-height: 32px;
 	}
 }
 
