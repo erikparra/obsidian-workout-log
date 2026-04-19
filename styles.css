@@ -535,11 +535,13 @@
 	/* Exercise & Set Main Row - Tighter gaps */
 	.workout-exercise-main,
 	.workout-set-main {
-		gap: 6px;
+		gap: 4px;
 	}
 
 	/* Params Container - Tighter gaps */
-	.workout-exercise-params,
+	.workout-exercise-params{
+		gap: 2px;
+	}
 	.workout-set-params {
 		gap: 4px;
 	}
