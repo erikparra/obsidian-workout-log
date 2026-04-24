@@ -93,6 +93,29 @@ export default class WorkoutLogPlugin extends Plugin {
 				// Active exercise changed externally (user hit undo on exercise action), resync timer
 				this.timerManager.setActiveExerciseIndex(workoutId, parsedActiveIndex);
 			}
+		} else if (!isTimerRunning && parsed.metadata.state === 'started') {
+			// Timer was destroyed (e.g., Obsidian restart or 5-minute timeout), but workout is started.
+			// Auto-resume the timer so the user can continue without losing their progress.
+			const parsedActiveIndex = parsed.exercises.findIndex(e => e.state === 'inProgress');
+			const activeIndex = Math.max(0, parsedActiveIndex);
+			
+			// Recreate the timer at the correct exercise
+			this.timerManager.startWorkoutTimer(workoutId, activeIndex);
+
+			// Sync to the correct active set within the exercise
+			const activeExercise = parsed.exercises[activeIndex];
+			if (activeExercise && activeExercise.sets.length > 0) {
+				let parsedSetIndex = activeExercise.sets.findIndex(s => s.state === 'inProgress');
+				
+				if (parsedSetIndex === -1) {
+					// If no set is inProgress (e.g., app closed during a rest period), find the first pending set
+					parsedSetIndex = activeExercise.sets.findIndex(s => s.state === 'pending');
+				}
+				
+				if (parsedSetIndex > 0) {
+					this.timerManager.advanceSet(workoutId, activeIndex, parsedSetIndex);
+				}
+			}
 		}
 
 		// Create the callback functions that will handle user interactions

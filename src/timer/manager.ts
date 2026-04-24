@@ -45,6 +45,8 @@ export class TimerManager {
 	private onAutoAdvance: ((workoutId: string) => void) | null = null;
 	// Track state from last callback to detect meaningful changes
 	private lastCalledState: Map<string, TimerState> = new Map();
+	// Track timeouts for graceful cleanup of orphaned timers
+	private cleanupTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 	/**
 	 * Create a TimerManager instance.
@@ -276,6 +278,12 @@ export class TimerManager {
 		this.timers.delete(workoutId);
 		this.lastCalledState.delete(workoutId);
 
+		const timeout = this.cleanupTimeouts.get(workoutId);
+		if (timeout) {
+			clearTimeout(timeout);
+			this.cleanupTimeouts.delete(workoutId);
+		}
+
 		// Cancel animation frame if no more active timers
 		if (this.timers.size === 0 && this.frameId !== null) {
 			cancelAnimationFrame(this.frameId);
@@ -305,6 +313,13 @@ export class TimerManager {
 
 		timer.callbacks.add(callback);
 
+		// Clear any pending cleanup timeout since we have a new subscriber
+		const existingTimeout = this.cleanupTimeouts.get(workoutId);
+		if (existingTimeout) {
+			clearTimeout(existingTimeout);
+			this.cleanupTimeouts.delete(workoutId);
+		}
+
 		// Immediately call with current state
 		const state = this.getTimerState(workoutId);
 		if (state) {
@@ -316,17 +331,22 @@ export class TimerManager {
 		return () => {
 			timer.callbacks.delete(callback);
 
-			// Auto-cleanup: delete timer if no more subscribers
+			// Graceful Auto-cleanup: wait 5 minutes before deleting to allow for UI re-renders
 			if (timer.callbacks.size === 0) {
-				this.timers.delete(workoutId);
-				this.lastCalledState.delete(workoutId);
+				const timeout = setTimeout(() => {
+					this.timers.delete(workoutId);
+					this.lastCalledState.delete(workoutId);
+					this.cleanupTimeouts.delete(workoutId);
 
-				// Cancel animation frame if no timers left
-				if (this.timers.size === 0 && this.frameId !== null) {
-					cancelAnimationFrame(this.frameId);
-					this.frameId = null;
-					this.lastSecond = 0;
-				}
+					// Cancel animation frame if no timers left
+					if (this.timers.size === 0 && this.frameId !== null) {
+						cancelAnimationFrame(this.frameId);
+						this.frameId = null;
+						this.lastSecond = 0;
+					}
+				}, 300000); // 5 minutes grace period
+				
+				this.cleanupTimeouts.set(workoutId, timeout);
 			}
 		};
 	}
@@ -594,5 +614,9 @@ export class TimerManager {
 		}
 		this.timers.clear();
 		this.lastCalledState.clear();
+		for (const timeout of this.cleanupTimeouts.values()) {
+			clearTimeout(timeout);
+		}
+		this.cleanupTimeouts.clear();
 	}
 }
