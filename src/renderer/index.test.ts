@@ -812,7 +812,7 @@ describe('renderWorkout', () => {
 						params: [],
 						sets: [
 							{ state: 'completed', params: [] },
-							{ state: 'in-progress', params: [], restDuration: '60s' }
+							{ state: 'in-progress', params: [{ key: 'Rest', value: '60s', editable: true, unit: '' }] }
 						],
 						lineIndex: 0
 					},
