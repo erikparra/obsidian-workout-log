@@ -667,6 +667,7 @@ describe('renderWorkout', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 100,
 				exerciseElapsed: 50,
+				isOvertime: false,
 				isRestActive: false,
 				restRemaining: 0
 			};
@@ -776,6 +777,7 @@ describe('renderWorkout', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 100,
 				exerciseElapsed: 50,
+				isOvertime: false,
 				isRestActive: false,
 				restRemaining: 0
 			};
@@ -844,6 +846,7 @@ describe('renderWorkout', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 200,
 				exerciseElapsed: 100,
+				isOvertime: false,
 				isRestActive: true,
 				restRemaining: 0
 			};
