@@ -148,6 +148,14 @@ export function renderWorkout(ctx: RendererContext): void {
 		let unsubscribe: () => void;
 
 		unsubscribe = timerManager.subscribe(workoutId, (state: TimerState) => {
+			// Stale render detection: if the container is no longer in the DOM, unsubscribe and stop.
+			// This prevents updates from old renders after a re-render, which can cause race conditions
+			// when the app is backgrounded and then brought back to the foreground.
+			if (!container.isConnected) {
+				if (unsubscribe) unsubscribe();
+				return;
+			}
+
 			// Update the header timer display
 			updateHeaderTimer(headerTimerEl, state);
 
@@ -208,13 +216,19 @@ export function renderWorkout(ctx: RendererContext): void {
 				}
 
 				// Auto-advance to next exercise when rest completes
-				// Conditions: (1) on last set, (2) not last exercise, (3)  
-				const isLastSet = Array.isArray(activeExercise.sets) && activeElements?.setTimerEl &&
+				// Conditions: (1) on last set, (2) not last exercise, (3) rest has an editable bracket
+				const isLastSet = activeExercise.sets.length > 0 &&
 					(timerManager.getActiveSetIndex(workoutId) === activeExercise.sets.length - 1);
 				const isLastExercise = currentActiveIndex === parsed.exercises.length - 1;
+
+				const restParam = activeSet?.params.find(p => p.key.toLowerCase() === 'rest') || 
+					activeExercise.params.find(p => p.key.toLowerCase() === 'rest');
+				const isRestEditable = restParam?.editable ?? false;
+
 				if (
 					isLastSet && !isLastExercise && state.isRestActive &&
-					typeof state.restRemaining === 'number' && state.restRemaining <= 0 && !hasAutoAdvanced
+					typeof state.restRemaining === 'number' && state.restRemaining <= 0 && !hasAutoAdvanced &&
+					isRestEditable
 				) {
 					hasAutoAdvanced = true;
 					// Trigger advance to next exercise

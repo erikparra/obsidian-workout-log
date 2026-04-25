@@ -209,10 +209,12 @@ describe('renderWorkoutControls', () => {
 					name: 'Push Ups',
 					state: 'pending',
 					params: [],
-					sets: [{ state: 'pending', params: [] }],
+					sets: [{ state: 'pending', params: [], lineIndex: 1 }],
 					lineIndex: 0
 				}
-			]
+			],
+			rawLines: [],
+			metadataEndIndex: -1
 		};
 		jest.clearAllMocks();
 	});
@@ -510,17 +512,19 @@ describe('renderWorkoutControls', () => {
 						name: 'Push Ups',
 						state: 'completed',
 						params: [],
-						sets: [{ state: 'completed', params: [] }],
+						sets: [{ state: 'completed', params: [], lineIndex: 1 }],
 						lineIndex: 0
 					},
 					{
 						name: 'Pull Ups',
 						state: 'completed',
 						params: [],
-						sets: [{ state: 'completed', params: [] }],
+						sets: [{ state: 'completed', params: [], lineIndex: 4 }],
 						lineIndex: 3
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkoutControls(container, 'completed', mockCallbacks, multiExerciseWorkout);

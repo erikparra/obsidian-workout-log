@@ -53,6 +53,7 @@ class MockElement {
 	_textContent: string = '';
 	styleMap: Map<string, string> = new Map();
 	attributes: Map<string, string> = new Map();
+	isConnected: boolean = true;
 
 	constructor(tag: string) {
 		this.tag = tag;
@@ -182,10 +183,12 @@ describe('renderWorkout', () => {
 				name: 'Push Ups',
 				state: 'pending',
 				params: [],
-				sets: [{ state: 'pending', params: [] }],
+				sets: [{ state: 'pending', params: [], lineIndex: 1 }],
 				lineIndex: 0
 			}
-		]
+		],
+		rawLines: [],
+		metadataEndIndex: -1
 	};
 
 	beforeEach(() => {
@@ -306,7 +309,9 @@ describe('renderWorkout', () => {
 			const { renderEmptyState } = require('./emptyState');
 			const emptyWorkout: ParsedWorkout = {
 				metadata: { title: 'Empty', state: 'planned' },
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -340,7 +345,9 @@ describe('renderWorkout', () => {
 			const { renderEmptyState } = require('./emptyState');
 			const emptyCompletedWorkout: ParsedWorkout = {
 				metadata: { title: 'Empty', state: 'completed' },
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -391,17 +398,19 @@ describe('renderWorkout', () => {
 						name: 'Exercise 1',
 						state: 'pending',
 						params: [],
-						sets: [{ state: 'pending', params: [] }],
+						sets: [{ state: 'pending', params: [], lineIndex: 1 }],
 						lineIndex: 0
 					},
 					{
 						name: 'Exercise 2',
 						state: 'pending',
 						params: [],
-						sets: [{ state: 'pending', params: [] }],
+						sets: [{ state: 'pending', params: [], lineIndex: 2 }],
 						lineIndex: 1
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -667,6 +676,7 @@ describe('renderWorkout', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 100,
 				exerciseElapsed: 50,
+				isOvertime: false,
 				isRestActive: false,
 				restRemaining: 0
 			};
@@ -776,6 +786,7 @@ describe('renderWorkout', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 100,
 				exerciseElapsed: 50,
+				isOvertime: false,
 				isRestActive: false,
 				restRemaining: 0
 			};
@@ -812,7 +823,7 @@ describe('renderWorkout', () => {
 						params: [],
 						sets: [
 							{ state: 'completed', params: [] },
-							{ state: 'in-progress', params: [], restDuration: '60s' }
+							{ state: 'in-progress', params: [{ key: 'Rest', value: '60s', editable: true, unit: '' }] }
 						],
 						lineIndex: 0
 					},
@@ -844,6 +855,7 @@ describe('renderWorkout', () => {
 			const timerState: TimerState = {
 				workoutElapsed: 200,
 				exerciseElapsed: 100,
+				isOvertime: false,
 				isRestActive: true,
 				restRemaining: 0
 			};
@@ -860,7 +872,9 @@ describe('renderWorkout', () => {
 		it('should handle empty exercise list', () => {
 			const emptyWorkout: ParsedWorkout = {
 				metadata: { title: 'Empty', state: 'planned' },
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -892,7 +906,9 @@ describe('renderWorkout', () => {
 					title: 'A'.repeat(500),
 					state: 'planned'
 				},
-				exercises: mockWorkout.exercises
+				exercises: mockWorkout.exercises,
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({

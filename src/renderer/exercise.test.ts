@@ -960,7 +960,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 				params: [],
 				sets: [
 					{ state: 'completed', params: [] },
-					{ state: 'in-progress', params: [], restDuration: '45s' },
+					{ state: 'in-progress', params: [], targetRest: 45 },
 					{ state: 'pending', params: [] }
 				],
 				lineIndex: 0
@@ -1236,7 +1236,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 					{
 						state: 'pending',
 						params: [],
-						restDuration: '120s'
+						targetRest: 120
 					}
 				],
 				lineIndex: 0
@@ -1288,7 +1288,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 				params: [],
 				sets: [
 					{ state: 'completed', params: [] },
-					{ state: 'in-progress', params: [], restDuration: '60s' }
+					{ state: 'in-progress', params: [], targetRest: 60 }
 				],
 				lineIndex: 0
 			};
@@ -1298,7 +1298,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ setIndex: 1, phase: 'rest' },
+				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 10, restRemaining: 50 },
 				mockCallbacks,
 				'started'
 			);
@@ -1403,7 +1403,7 @@ describe('renderExercise & updateExerciseTimer', () => {
 						state: 'completed',
 						params: [],
 						recordedTime: '2m 10s',
-						restDuration: '120s'
+						recordedRest: '120s'
 					}
 				],
 				recordedTime: '2m 30s',
@@ -1672,8 +1672,8 @@ describe('renderExercise & updateExerciseTimer', () => {
 				state: 'started',
 				params: [],
 				sets: [
-					{ state: 'in-progress', params: [], restDuration: '90s' },
-					{ state: 'pending', params: [], restDuration: '90s' }
+					{ state: 'in-progress', params: [], targetRest: 90 },
+					{ state: 'pending', params: [], targetRest: 90 }
 				],
 				lineIndex: 0
 			};
@@ -1684,9 +1684,6 @@ describe('renderExercise & updateExerciseTimer', () => {
 				true,
 				0,
 				{ workoutElapsed: 0, exerciseElapsed: 15, isOvertime: false, isRestActive: false, restElapsed: 0, restRemaining: 0 },
-				mockCallbacks,
-				'started',
-				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -1996,10 +1993,7 @@ describe('updateExerciseTimer', () => {
 				mockCallbacks,
 				'started',
 				undefined,
-				mockCallbacks,
-				'started',
-				2, // totalExercises (not last)
-				undefined
+				2 // totalExercises (not last)
 			);
 			expect(mockCallbacks.onSetFinish).toBeDefined();
 		});
@@ -2025,10 +2019,7 @@ describe('updateExerciseTimer', () => {
 				mockCallbacks,
 				'started',
 				undefined,
-				mockCallbacks,
-				'started',
-				2, // totalExercises (there's another after this)
-				undefined
+				2 // totalExercises (there's another after this)
 			);
 			expect(mockCallbacks.onSetFinish).toBeDefined();
 		});
@@ -2054,10 +2045,7 @@ describe('updateExerciseTimer', () => {
 				mockCallbacks,
 				'started',
 				undefined,
-				mockCallbacks,
-				'started',
-				3, // totalExercises (3 total, on exercise 2 which is last)
-				undefined
+				3 // totalExercises (3 total, on exercise 2 which is last)
 			);
 			expect(mockCallbacks.onSetFinish).toBeDefined();
 		});
@@ -2080,10 +2068,7 @@ describe('updateExerciseTimer', () => {
 				mockCallbacks,
 				'started',
 				undefined,
-				mockCallbacks,
-				'started',
-				1,
-				undefined
+				1 // totalExercises
 			);
 			expect(mockCallbacks.onRestEnd).toBeDefined();
 		});
@@ -2352,8 +2337,11 @@ describe('updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 30,
+				workoutElapsed: 30,
+				exerciseElapsed: 30,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 50,
 				restRemaining: 250  // 250/300 = 83% (green)
 			};
 			const result = renderExercise(
@@ -2385,8 +2373,11 @@ describe('updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 100,
+				workoutElapsed: 100,
+				exerciseElapsed: 100,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 150,
 				restRemaining: 150  // 150/300 = 50% (yellow)
 			};
 			const result = renderExercise(
@@ -2418,8 +2409,11 @@ describe('updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 250,
+				workoutElapsed: 250,
+				exerciseElapsed: 250,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 250,
 				restRemaining: 50  // 50/300 = 17% (red)
 			};
 			const result = renderExercise(
@@ -2451,8 +2445,11 @@ describe('updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 75,
+				workoutElapsed: 75,
+				exerciseElapsed: 75,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 75,
 				restRemaining: -15  // Overtime by 15 seconds
 			};
 			const result = renderExercise(
@@ -2484,8 +2481,11 @@ describe('updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 60,
+				workoutElapsed: 60,
+				exerciseElapsed: 60,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 60,
 				restRemaining: 0  // Exactly at end
 			};
 			const result = renderExercise(
@@ -2515,8 +2515,11 @@ describe('updateExerciseTimer', () => {
 				lineIndex: 0
 			};
 			const timerState: TimerState = {
-				elapsed: 30,
+				workoutElapsed: 30,
+				exerciseElapsed: 30,
+				isOvertime: false,
 				isRestActive: true,
+				restElapsed: 30,
 				restRemaining: 30  // No rest duration param
 			};
 			const result = renderExercise(
@@ -2793,9 +2796,6 @@ describe('updateExerciseTimer', () => {
 				true,
 				0,
 				{ workoutElapsed: 0, exerciseElapsed: 0, isOvertime: false, isRestActive: true, restElapsed: 50, restRemaining: 250 }, // 250/300 = 83%
-				mockCallbacks,
-				'started',
-				undefined,
 				mockCallbacks,
 				'started'
 			);
@@ -3357,7 +3357,7 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				1,
-				{ elapsed: 25, isRestActive: false },
+				{ workoutElapsed: 25, exerciseElapsed: 25, isOvertime: false, isRestActive: false },
 				mockCallbacks,
 				'started'
 			);
@@ -3559,7 +3559,7 @@ describe('updateExerciseTimer', () => {
 				0,
 				true,
 				2,
-				{ elapsed: 15, isRestActive: false },
+				{ workoutElapsed: 15, exerciseElapsed: 15, isOvertime: false, isRestActive: false },
 				mockCallbacks,
 				'started'
 			);

@@ -263,7 +263,7 @@
 }
 
 .workout-set-timer.rest-overtime {
-	color: var(--color-blue);
+	color: var(--color-red);
 }
 
 .timer-indicator {
@@ -292,7 +292,7 @@
 }
 
 .timer-indicator.rest-overtime {
-	color: var(--color-blue);
+	color: var(--color-red);
 }
 
 /* Exercise Controls */
