@@ -53,6 +53,7 @@ class MockElement {
 	_textContent: string = '';
 	styleMap: Map<string, string> = new Map();
 	attributes: Map<string, string> = new Map();
+	isConnected: boolean = true;
 
 	constructor(tag: string) {
 		this.tag = tag;
@@ -182,10 +183,12 @@ describe('renderWorkout', () => {
 				name: 'Push Ups',
 				state: 'pending',
 				params: [],
-				sets: [{ state: 'pending', params: [] }],
+				sets: [{ state: 'pending', params: [], lineIndex: 1 }],
 				lineIndex: 0
 			}
-		]
+		],
+		rawLines: [],
+		metadataEndIndex: -1
 	};
 
 	beforeEach(() => {
@@ -306,7 +309,9 @@ describe('renderWorkout', () => {
 			const { renderEmptyState } = require('./emptyState');
 			const emptyWorkout: ParsedWorkout = {
 				metadata: { title: 'Empty', state: 'planned' },
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -340,7 +345,9 @@ describe('renderWorkout', () => {
 			const { renderEmptyState } = require('./emptyState');
 			const emptyCompletedWorkout: ParsedWorkout = {
 				metadata: { title: 'Empty', state: 'completed' },
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -391,17 +398,19 @@ describe('renderWorkout', () => {
 						name: 'Exercise 1',
 						state: 'pending',
 						params: [],
-						sets: [{ state: 'pending', params: [] }],
+						sets: [{ state: 'pending', params: [], lineIndex: 1 }],
 						lineIndex: 0
 					},
 					{
 						name: 'Exercise 2',
 						state: 'pending',
 						params: [],
-						sets: [{ state: 'pending', params: [] }],
+						sets: [{ state: 'pending', params: [], lineIndex: 2 }],
 						lineIndex: 1
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -863,7 +872,9 @@ describe('renderWorkout', () => {
 		it('should handle empty exercise list', () => {
 			const emptyWorkout: ParsedWorkout = {
 				metadata: { title: 'Empty', state: 'planned' },
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({
@@ -895,7 +906,9 @@ describe('renderWorkout', () => {
 					title: 'A'.repeat(500),
 					state: 'planned'
 				},
-				exercises: mockWorkout.exercises
+				exercises: mockWorkout.exercises,
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			renderWorkout({

@@ -99,8 +99,24 @@ export default class WorkoutLogPlugin extends Plugin {
 			const parsedActiveIndex = parsed.exercises.findIndex(e => e.state === 'inProgress');
 			const activeIndex = Math.max(0, parsedActiveIndex);
 			
-			// Recreate the timer at the correct exercise
-			this.timerManager.startWorkoutTimer(workoutId, activeIndex);
+			// Calculate total elapsed time from completed exercises and sets
+			let elapsedWorkoutSeconds = 0;
+			for (const ex of parsed.exercises) {
+				if (ex.state === 'completed') {
+					if (ex.recordedTime) elapsedWorkoutSeconds += parseDurationToSeconds(ex.recordedTime);
+					if (ex.recordedRest) elapsedWorkoutSeconds += parseDurationToSeconds(ex.recordedRest);
+				} else if (ex.state === 'inProgress') {
+					for (const set of ex.sets) {
+						if (set.state === 'completed') {
+							if (set.recordedTime) elapsedWorkoutSeconds += parseDurationToSeconds(set.recordedTime);
+							if (set.recordedRest) elapsedWorkoutSeconds += parseDurationToSeconds(set.recordedRest);
+						}
+					}
+				}
+			}
+
+			// Recreate the timer at the correct exercise, restoring the total workout time
+			this.timerManager.startWorkoutTimer(workoutId, activeIndex, elapsedWorkoutSeconds);
 
 			// Sync to the correct active set within the exercise
 			const activeExercise = parsed.exercises[activeIndex];
@@ -110,6 +126,11 @@ export default class WorkoutLogPlugin extends Plugin {
 				if (parsedSetIndex === -1) {
 					// If no set is inProgress (e.g., app closed during a rest period), find the first pending set
 					parsedSetIndex = activeExercise.sets.findIndex(s => s.state === 'pending');
+				}
+				
+				if (parsedSetIndex === -1) {
+					// If all sets are completed but exercise is inProgress (closed during final rest)
+					parsedSetIndex = activeExercise.sets.length - 1;
 				}
 				
 				if (parsedSetIndex > 0) {

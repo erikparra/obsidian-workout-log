@@ -10,7 +10,7 @@ class MockTFile extends TFile {
 }
 
 class MockApp {
-	private files: Map<string, { content: string; frontmatter: Record<string, unknown> }> = new Map();
+	private files: Map<string, { content: string; frontmatter: Record<string, any> }> = new Map();
 
 	setFileContent(path: string, content: string): void {
 		if (!this.files.has(path)) {
@@ -25,8 +25,8 @@ class MockApp {
 		return this.files.get(path)?.content;
 	}
 
-	getFileFrontmatter(path: string): Record<string, unknown> | undefined {
-		return this.files.get(path)?.frontmatter;
+	getFileFrontmatter(path: string): Record<string, any> {
+		return this.files.get(path)?.frontmatter || {};
 	}
 
 	vault = {
@@ -43,7 +43,7 @@ class MockApp {
 	};
 
 	fileManager = {
-		processFrontMatter: async (file: MockTFile, callback: (frontmatter: Record<string, unknown>) => void) => {
+		processFrontMatter: async (file: MockTFile, callback: (frontmatter: Record<string, any>) => void) => {
 			const fileData = this.files.get(file.path);
 			if (fileData) {
 				callback(fileData.frontmatter);
@@ -385,7 +385,9 @@ describe('FileUpdater', () => {
 					state: 'started',
 					saveToProperties: false
 				},
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -407,7 +409,9 @@ describe('FileUpdater', () => {
 					restDuration: 300,
 					saveToProperties: true
 				},
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -436,16 +440,20 @@ describe('FileUpdater', () => {
 						state: 'completed',
 						recordedTime: '10m',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Duration', value: '120', unit: 's', editable: false }
-								]
+								],
+								lineIndex: 1
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -476,24 +484,29 @@ describe('FileUpdater', () => {
 						name: 'Dumb Bell Curl',
 						state: 'completed',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Weight', value: '10', unit: 'kg', editable: true },
 									{ key: 'Reps', value: '10', unit: '', editable: true }
-								]
+								],
+								lineIndex: 1
 							},
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Weight', value: '12', unit: 'kg', editable: true },
 									{ key: 'Reps', value: '8', unit: '', editable: true }
-								]
+								],
+								lineIndex: 2
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -518,22 +531,27 @@ describe('FileUpdater', () => {
 						name: 'Treadmill',
 						state: 'completed',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Duration', value: '300', unit: '', editable: true }
-								]
+								],
+								lineIndex: 1
 							},
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Duration', value: '180', unit: '', editable: true }
-								]
+								],
+								lineIndex: 2
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -557,13 +575,15 @@ describe('FileUpdater', () => {
 						name: 'Bench Press',
 						state: 'completed',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Weight', value: '100', unit: 'kg', editable: true },
 									{ key: 'Reps', value: '5', unit: '', editable: true }
-								]
+								],
+								lineIndex: 1
 							}
 						]
 					},
@@ -571,17 +591,21 @@ describe('FileUpdater', () => {
 						name: 'Squats',
 						state: 'completed',
 						params: [],
+						lineIndex: 2,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Weight', value: '150', unit: 'kg', editable: true },
 									{ key: 'Reps', value: '8', unit: '', editable: true }
-								]
+								],
+								lineIndex: 3
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -608,17 +632,21 @@ describe('FileUpdater', () => {
 						name: 'Test',
 						state: 'completed',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Weight', value: 'invalid', unit: 'kg', editable: true },
 									{ key: 'Reps', value: '10', unit: '', editable: true }
-								]
+								],
+								lineIndex: 1
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -643,14 +671,18 @@ describe('FileUpdater', () => {
 						name: 'NoParams',
 						state: 'completed',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
-								params: []
+								params: [],
+								lineIndex: 1
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);
@@ -668,7 +700,9 @@ describe('FileUpdater', () => {
 					state: 'started',
 					saveToProperties: true
 				},
-				exercises: []
+				exercises: [],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties('nonexistent.md', parsed);
@@ -691,16 +725,20 @@ describe('FileUpdater', () => {
 						state: 'completed',
 						recordedTime: '10m',
 						params: [],
+						lineIndex: 0,
 						sets: [
 							{
 								state: 'completed',
 								params: [
 									{ key: 'Duration', value: '300s', unit: '', editable: false }
-								]
+								],
+								lineIndex: 1
 							}
 						]
 					}
-				]
+				],
+				rawLines: [],
+				metadataEndIndex: -1
 			};
 
 			await updater.saveToProperties(filePath, parsed);

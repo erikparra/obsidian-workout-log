@@ -259,8 +259,8 @@ describe('TimerManager', () => {
 			manager.startWorkoutTimer('workout1');
 			dateNowSpy.mockReturnValue(6000);
 			
-			const elapsed = manager.getElapsedSeconds('workout1');
-			expect(elapsed).toBe(5);
+			const state = manager.getTimerState('workout1');
+			expect(state?.workoutElapsed).toBe(5);
 		});
 
 		it('should account for pause time', () => {
@@ -269,8 +269,8 @@ describe('TimerManager', () => {
 			manager.pauseExercise('workout1');
 			dateNowSpy.mockReturnValue(6000);
 			
-			const elapsed = manager.getElapsedSeconds('workout1');
-			expect(elapsed).toBe(1);
+			const state = manager.getTimerState('workout1');
+			expect(state?.exerciseElapsed).toBe(1);
 		});
 	});
 
@@ -280,8 +280,8 @@ describe('TimerManager', () => {
 			manager.startRest('workout1', 60);
 			dateNowSpy.mockReturnValue(36000);
 			
-			const elapsed = manager.getRestElapsedSeconds('workout1');
-			expect(elapsed).toBe(35); // 36000ms (now) - 1000ms (start) = 35000ms = 35s
+			const state = manager.getTimerState('workout1');
+			expect(state?.restElapsed).toBe(35); // 36000ms (now) - 1000ms (start) = 35000ms = 35s
 		});
 	});
 
@@ -291,8 +291,8 @@ describe('TimerManager', () => {
 			manager.startRest('workout1', 60);
 			dateNowSpy.mockReturnValue(21000);
 			
-			const remaining = manager.getRestRemainingSeconds('workout1');
-			expect(remaining).toBeCloseTo(40, 1); // 60s duration - (21000ms - 1000ms) = 40s
+			const state = manager.getTimerState('workout1');
+			expect(state?.restRemaining).toBeCloseTo(40, 1); // 60s duration - (21000ms - 1000ms) = 40s
 		});
 	});
 

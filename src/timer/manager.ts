@@ -86,9 +86,11 @@ export class TimerManager {
 	 * Parameters:
 	 * - workoutId: Unique identifier for this workout
 	 * - activeExerciseIndex: Starting exercise index (default 0)
+	 * - elapsedWorkoutSeconds: Seconds already elapsed from a previous session (default 0)
 	 */
-	startWorkoutTimer(workoutId: string, activeExerciseIndex: number = 0): void {
+	startWorkoutTimer(workoutId: string, activeExerciseIndex: number = 0, elapsedWorkoutSeconds: number = 0): void {
 		const now = Date.now();
+		const workoutStartTime = now - (elapsedWorkoutSeconds * 1000);
 
 		const existing = this.timers.get(workoutId);
 		if (existing) {
@@ -105,7 +107,7 @@ export class TimerManager {
 			// Create new timer instance
 			this.timers.set(workoutId, {
 				workoutId,
-				workoutStartTime: now,  // Total elapsed from workout start (never paused)
+				workoutStartTime,        // Total elapsed from workout start (never paused)
 				exerciseStartTime: now,  // Current exercise/set start time
 				exercisePausedTime: 0,   // Accumulated time when paused
 				isPaused: false,
